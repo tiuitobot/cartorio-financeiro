@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.gitignore
+.env
+.env.*
+docs
+infra
+cartorio server.zip
+cartorio server.zip:Zone.Identifier
+README.upstream.md
+instalar.sh
+ecosystem.config.js
+nginx

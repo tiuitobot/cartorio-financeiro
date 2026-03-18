@@ -1,0 +1,313 @@
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { api } from './api.js';
+import { parseRef } from './utils/format.js';
+import { padControle } from './utils/format.js';
+
+// Pages
+import TelaLogin      from './pages/TelaLogin.jsx';
+import Dashboard      from './pages/Dashboard.jsx';
+import Atos           from './pages/Atos.jsx';
+import Relatorios     from './pages/Relatorios.jsx';
+import Escreventes    from './pages/Escreventes.jsx';
+import PainelUsuarios from './pages/PainelUsuarios.jsx';
+
+// Modals
+import ModalAto                  from './components/modals/ModalAto.jsx';
+import ModalEscrevente           from './components/modals/ModalEscrevente.jsx';
+import ModalDeclaroParticipacao  from './components/modals/ModalDeclaroParticipacao.jsx';
+import ModalRespostaCaptador     from './components/modals/ModalRespostaCaptador.jsx';
+import ModalTrocarSenha          from './components/modals/ModalTrocarSenha.jsx';
+
+export default function App() {
+  const [user, setUser]                           = useState(null);
+  const [loadingApp, setLoadingApp]               = useState(true);
+  const [atos, setAtos]                           = useState([]);
+  const [escreventes, setEscreventes]             = useState([]);
+  const [pagamentosReembolso, setPagamentosReembolso] = useState([]);
+  const [reivindicacoes, setReivindicacoes]       = useState([]);
+  const [view, setView]                           = useState('dashboard');
+  const [modalAto, setModalAto]                   = useState(null);
+  const [modalEscrevente, setModalEscrevente]     = useState(null);
+  const [modalDeclaro, setModalDeclaro]           = useState(false);
+  const [modalRespostaCaptador, setModalRespostaCaptador] = useState(null);
+  const [modalSenha, setModalSenha]               = useState(false);
+  const [busca, setBusca]                         = useState('');
+  const [erro, setErro]                           = useState('');
+
+  const userRole = user?.perfil || 'escrevente';
+  const userId   = user?.escrevente_id || null;
+
+  // ── Autenticação ao iniciar ──────────────────────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem('cartorio_token');
+    if (!token) { setLoadingApp(false); return; }
+    api.me().then(u => setUser(u)).catch(() => {
+      localStorage.removeItem('cartorio_token');
+    }).finally(() => setLoadingApp(false));
+  }, []);
+
+  // ── Carregar dados ───────────────────────────────────────────────────────────
+  const carregarDados = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [atosData, escsData, rembs, reivs] = await Promise.all([
+        api.getAtos(),
+        api.getEscreventes(),
+        api.getReembolsos(),
+        api.getReivindicacoes(),
+      ]);
+      setAtos(atosData);
+      setEscreventes(escsData);
+      setPagamentosReembolso(rembs);
+      setReivindicacoes(reivs);
+    } catch (e) {
+      setErro('Erro ao carregar dados: ' + e.message);
+    }
+  }, [user]);
+
+  useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const handleLogin  = (userData) => setUser(userData);
+  const handleLogout = () => {
+    localStorage.removeItem('cartorio_token');
+    setUser(null); setAtos([]); setEscreventes([]);
+  };
+
+  const salvarAto = async (form) => {
+    try {
+      let ato;
+      if (form.id && typeof form.id === 'number' && form.id < 1e12) {
+        ato = await api.atualizarAto(form.id, form);
+        setAtos(prev => prev.map(a => a.id === ato.id ? ato : a));
+      } else {
+        ato = await api.criarAto(form);
+        setAtos(prev => [...prev, ato]);
+      }
+      setModalAto(null);
+    } catch (e) { setErro('Erro ao salvar ato: ' + e.message); }
+  };
+
+  const salvarEscrevente = async (form) => {
+    try {
+      let esc;
+      if (form.id) {
+        esc = await api.atualizarEscrevente(form.id, form);
+        setEscreventes(prev => prev.map(e => e.id === esc.id ? esc : e));
+      } else {
+        esc = await api.criarEscrevente(form);
+        setEscreventes(prev => [...prev, esc]);
+      }
+      setModalEscrevente(null);
+    } catch (e) { setErro('Erro ao salvar escrevente: ' + e.message); }
+  };
+
+  const handleDeclaro = async (reiv) => {
+    try {
+      const nova = await api.criarReivindicacao(reiv);
+      setReivindicacoes(prev => [...prev, nova]);
+      setModalDeclaro(false);
+    } catch (e) { setErro(e.message); }
+  };
+
+  const handleRespostaCaptador = async (reivAtualizada) => {
+    try {
+      const atualizada = await api.atualizarReivindicacao(reivAtualizada.id, reivAtualizada);
+      setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
+      if (reivAtualizada.status === 'aceita') await carregarDados();
+      setModalRespostaCaptador(null);
+    } catch (e) { setErro(e.message); }
+  };
+
+  const handleContestarRecusa = async (reivId) => {
+    try {
+      const atualizada = await api.atualizarReivindicacao(reivId, { status: 'contestada' });
+      setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
+    } catch (e) { setErro(e.message); }
+  };
+
+  const handleDecisaoFinanceiro = async (reivId, aceitar) => {
+    const status = aceitar ? 'aceita_financeiro' : 'negada_financeiro';
+    try {
+      const atualizada = await api.atualizarReivindicacao(reivId, { status, decisao_financeiro: aceitar ? 'Aceita pelo Financeiro' : 'Negada pelo Financeiro' });
+      setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
+      if (aceitar) await carregarDados();
+    } catch (e) { setErro(e.message); }
+  };
+
+  // ── Visibilidade de atos (C1: backend já filtra para escrevente; workaround mantido como camada extra) ──
+  const podeVerAto = (ato) => {
+    if (['admin', 'financeiro', 'chefe_financeiro'].includes(userRole)) return true;
+    if (!userId) return false;
+    if ([ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId)) return true;
+    const esc = escreventes.find(e => e.id === userId);
+    return (esc?.compartilhar_com || []).some(cid => [ato.captador_id, ato.executor_id, ato.signatario_id].includes(cid));
+  };
+
+  const atosFiltrados = useMemo(() => {
+    let l = atos.filter(podeVerAto);
+    if (busca) {
+      const ref = parseRef(busca);
+      if (ref) { l = l.filter(a => parseInt(a.livro) === ref.livro && parseInt(a.pagina) === ref.pagina); }
+      else { const b = busca.toLowerCase(); l = l.filter(a => padControle(a.controle).includes(b) || a.controle.includes(b)); }
+    }
+    return l;
+  }, [atos, userRole, userId, escreventes, busca]);
+
+  const navItems = [
+    { key: 'dashboard',  label: 'Dashboard',       icon: '📊' },
+    { key: 'atos',       label: 'Livros de Notas',  icon: '📋' },
+    { key: 'relatorios', label: 'Relatórios',       icon: '📈' },
+    ...(userRole === 'admin' ? [{ key: 'escreventes', label: 'Escreventes', icon: '👥' }, { key: 'usuarios', label: 'Usuários', icon: '🔑' }] : []),
+  ];
+
+  // ── Render: loading / login ──────────────────────────────────────────────────
+  if (loadingApp) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#1e3a5f,#152b47)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
+      Carregando...
+    </div>
+  );
+  if (!user) return <TelaLogin onLogin={handleLogin} />;
+
+  // ── Render principal ─────────────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: "'Segui UI',system-ui,sans-serif" }}>
+
+      {/* Sidebar */}
+      <div style={{ position: 'fixed', left: 0, top: 0, bottom: 0, width: 235, background: 'linear-gradient(180deg,#1e3a5f,#152b47)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+        <div style={{ padding: '20px 16px', borderBottom: '2px solid #e8edf5', background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src="/logo.png" alt="Logo" style={{ width: 50, height: 50, objectFit: 'contain' }} />
+          <div>
+            <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>Cartório de Notas</div>
+            <div style={{ color: '#1e3a5f', fontSize: 14, fontWeight: 800, marginTop: 2, lineHeight: 1.2 }}>Gestão Financeira</div>
+          </div>
+        </div>
+        <nav style={{ flex: 1, padding: '14px 10px' }}>
+          {navItems.map(item => (
+            <button key={item.key} onClick={() => setView(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', marginBottom: 3, textAlign: 'left', background: view === item.key ? '#ffffff1a' : 'transparent', color: view === item.key ? '#fff' : '#94a3b8', fontWeight: view === item.key ? 700 : 500, fontSize: 14 }}>
+              <span>{item.icon}</span>{item.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ padding: '14px 10px', borderTop: '1px solid #ffffff18' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 10, background: '#ffffff15', marginBottom: 8 }}>
+            <div style={{ color: '#93c5fd', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              {({ admin: '👑 Admin', financeiro: '💼 Financeiro', chefe_financeiro: '🎯 Chefe Financeiro', escrevente: '✍️ Escrevente' })[userRole]}
+            </div>
+            <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nome}</div>
+          </div>
+          <button onClick={() => setModalSenha(true)} style={{ width: '100%', padding: '8px 14px', border: 'none', borderRadius: 8, background: 'transparent', color: '#94a3b8', cursor: 'pointer', textAlign: 'left', fontSize: 13, marginBottom: 3 }}>🔒 Trocar senha</button>
+          <button onClick={handleLogout} style={{ width: '100%', padding: '8px 14px', border: 'none', borderRadius: 8, background: 'transparent', color: '#f87171', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: 600 }}>↩ Sair</button>
+        </div>
+      </div>
+
+      {/* Conteúdo principal */}
+      <div style={{ marginLeft: 235, padding: 28, minHeight: '100vh' }}>
+        {erro && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 18, color: '#dc2626', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            ⚠️ {erro}
+            <button onClick={() => setErro('')} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+            <h1 style={{ margin: 0, color: '#1e293b', fontSize: 22, fontWeight: 800 }}>
+              {{ dashboard: 'Dashboard', atos: 'Livros de Notas', relatorios: 'Relatórios', escreventes: 'Escreventes', usuarios: 'Usuários' }[view]}
+            </h1>
+            <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 2 }}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={carregarDados} title="Recarregar dados" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 16 }}>🔄</button>
+            {view === 'atos' && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && (
+              <button onClick={() => setModalAto('novo')} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Ato</button>
+            )}
+            {view === 'atos' && userRole === 'escrevente' && (
+              <button onClick={() => setModalDeclaro(true)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>📝 Declaro Participação</button>
+            )}
+            {view === 'escreventes' && userRole === 'admin' && (
+              <button onClick={() => setModalEscrevente({ nome: '', taxa: 20, cargo: '', email: '', compartilhar_com: [] })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
+            )}
+          </div>
+        </div>
+
+        {view === 'dashboard'  && <Dashboard atos={atos} escreventes={escreventes} />}
+
+        {view === 'atos' && (
+          <Atos
+            atos={atosFiltrados}
+            escreventes={escreventes}
+            reivindicacoes={reivindicacoes}
+            userRole={userRole}
+            userId={userId}
+            onOpenAto={a => setModalAto(a)}
+            onDeclaro={() => setModalDeclaro(true)}
+            onRespostaCaptador={r => setModalRespostaCaptador(r)}
+            onContestar={handleContestarRecusa}
+            onDecisaoFinanceiro={handleDecisaoFinanceiro}
+            busca={busca}
+            onBusca={setBusca}
+          />
+        )}
+
+        {view === 'relatorios' && (
+          <Relatorios
+            atos={atos}
+            escreventes={escreventes}
+            pagamentosReembolso={pagamentosReembolso}
+            onAddPagamento={async p => { try { const novo = await api.criarReembolso(p); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
+            onConfirmarReembolso={async id => { try { const atualizado = await api.confirmarReembolso(id); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
+          />
+        )}
+
+        {view === 'escreventes' && (
+          <Escreventes
+            escreventes={escreventes}
+            atos={atos}
+            userRole={userRole}
+            onEditar={e => setModalEscrevente(e)}
+          />
+        )}
+
+        {view === 'usuarios' && userRole === 'admin' && <PainelUsuarios escreventes={escreventes} />}
+      </div>
+
+      {/* Modais */}
+      {modalAto && (
+        <ModalAto
+          ato={modalAto === 'novo' ? null : modalAto}
+          onClose={() => setModalAto(null)}
+          onSave={salvarAto}
+          escreventes={escreventes}
+          userRole={userRole}
+          userId={userId}
+        />
+      )}
+      {modalEscrevente && (
+        <ModalEscrevente
+          init={modalEscrevente}
+          onClose={() => setModalEscrevente(null)}
+          onSave={salvarEscrevente}
+          todosEscreventes={escreventes}
+        />
+      )}
+      {modalDeclaro && (
+        <ModalDeclaroParticipacao
+          userId={userId}
+          atos={atos}
+          escreventes={escreventes}
+          onClose={() => setModalDeclaro(false)}
+          onSubmit={handleDeclaro}
+        />
+      )}
+      {modalRespostaCaptador && (
+        <ModalRespostaCaptador
+          reiv={modalRespostaCaptador}
+          escreventes={escreventes}
+          onClose={() => setModalRespostaCaptador(null)}
+          onSave={handleRespostaCaptador}
+        />
+      )}
+      {modalSenha && <ModalTrocarSenha onClose={() => setModalSenha(false)} />}
+    </div>
+  );
+}
