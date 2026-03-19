@@ -42,6 +42,8 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
   const [loadingLista, setLoadingLista] = useState(false);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [deletando, setDeletando] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [lotes, setLotes] = useState([]);
   const [selectedLoteId, setSelectedLoteId] = useState(null);
@@ -99,6 +101,8 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
   const fileWarnings = Array.isArray(summary.file_warnings) ? summary.file_warnings : [];
   const previewRows = loteDetalhe?.linhas || [];
   const canImport = selectedLote?.status === 'preview' && (selectedLote?.linhas_validas || 0) > 0;
+  const canCancel = selectedLote?.status === 'preview';
+  const canDelete = Boolean(selectedLote);
 
   const counters = useMemo(() => [
     { label: 'Lotes', value: lotes.length, color: '#1e3a5f' },
@@ -166,6 +170,75 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
       onErro?.(`Erro ao importar lote: ${error.message}`);
     } finally {
       setImportando(false);
+    }
+  };
+
+  const handleCancelar = async () => {
+    if (!selectedLote) return;
+
+    const confirmed = window.confirm(
+      `Cancelar o lote #${selectedLote.id}? O preview continuará listado como cancelado e não poderá mais ser importado.`
+    );
+    if (!confirmed) return;
+
+    setCancelando(true);
+    setMensagem('');
+    try {
+      const result = await api.cancelarImportacao(selectedLote.id);
+      setMensagem(
+        result.alreadyCancelled
+          ? `O lote #${selectedLote.id} já estava cancelado.`
+          : `Lote #${selectedLote.id} cancelado.`
+      );
+      await Promise.all([
+        loadLotes(selectedLote.id),
+        loadLoteDetalhe(selectedLote.id),
+      ]);
+    } catch (error) {
+      onErro?.(`Erro ao cancelar lote: ${error.message}`);
+    } finally {
+      setCancelando(false);
+    }
+  };
+
+  const handleDeletar = async () => {
+    if (!selectedLote) return;
+
+    const importedCount = Number.parseInt(importResult?.imported || 0, 10) || 0;
+    const deletedScope =
+      importedCount > 0
+        ? `Isto vai excluir o lote #${selectedLote.id} e remover ${importedCount} ato(s) importado(s) deste lote.`
+        : `Isto vai excluir definitivamente o lote #${selectedLote.id}.`;
+
+    const confirmed = window.confirm(`${deletedScope} Deseja continuar?`);
+    if (!confirmed) return;
+
+    setDeletando(true);
+    setMensagem('');
+    try {
+      const result = await api.deletarImportacao(selectedLote.id);
+      const removedEscreventes = Array.isArray(result.deleted_created_escreventes)
+        ? result.deleted_created_escreventes.length
+        : 0;
+      const preservedEscreventes = Array.isArray(result.skipped_created_escreventes)
+        ? result.skipped_created_escreventes.length
+        : 0;
+
+      setMensagem(
+        `Lote #${selectedLote.id} excluído. `
+        + `${result.deleted_imported_atos || 0} ato(s) removido(s), `
+        + `${removedEscreventes} escrevente(s) auto-criado(s) removido(s)`
+        + (preservedEscreventes > 0 ? ` e ${preservedEscreventes} preservado(s) por ainda terem referência.` : '.')
+      );
+
+      await loadLotes();
+      if ((result.deleted_imported_atos || 0) > 0 || removedEscreventes > 0) {
+        await Promise.resolve(onImportSuccess?.());
+      }
+    } catch (error) {
+      onErro?.(`Erro ao excluir lote: ${error.message}`);
+    } finally {
+      setDeletando(false);
     }
   };
 
@@ -323,13 +396,33 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <Badge label={statusMeta(selectedLote.status).label} color={statusMeta(selectedLote.status).color} />
-                  <Btn
-                    variant="success"
-                    onClick={handleImportar}
-                    disabled={!canImport || importando}
-                  >
-                    {importando ? 'Importando...' : 'Importar Lote'}
-                  </Btn>
+                  {canCancel && (
+                    <Btn
+                      variant="warning"
+                      onClick={handleCancelar}
+                      disabled={cancelando || importando || deletando}
+                    >
+                      {cancelando ? 'Cancelando...' : 'Cancelar Lote'}
+                    </Btn>
+                  )}
+                  {selectedLote.status === 'preview' && (
+                    <Btn
+                      variant="success"
+                      onClick={handleImportar}
+                      disabled={!canImport || importando || cancelando || deletando}
+                    >
+                      {importando ? 'Importando...' : 'Importar Lote'}
+                    </Btn>
+                  )}
+                  {canDelete && selectedLote.status !== 'preview' && (
+                    <Btn
+                      variant="danger"
+                      onClick={handleDeletar}
+                      disabled={deletando || importando || cancelando}
+                    >
+                      {deletando ? 'Excluindo...' : 'Excluir Lote'}
+                    </Btn>
+                  )}
                 </div>
               </div>
 
@@ -395,6 +488,11 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
                           Exibindo 10 de {importResult.errors.length} erros.
                         </div>
                       )}
+                    </div>
+                  )}
+                  {Array.isArray(importResult.created_escreventes) && importResult.created_escreventes.length > 0 && selectedLote.status !== 'preview' && (
+                    <div style={{ marginTop: 10, fontSize: 12, color: '#475569' }}>
+                      Ao excluir este lote, o sistema tenta remover automaticamente esses escreventes se eles continuarem sem outras referências.
                     </div>
                   )}
                 </HintBox>

@@ -14,6 +14,8 @@ Nesta fase foi preparada a trilha de:
 - persistencia em staging
 - preview para o frontend
 - tela frontend para upload, preview, listagem de lotes e importacao
+- cancelamento de lote em preview
+- exclusao de lotes anteriores com rollback dos atos importados e limpeza condicional de escreventes auto-criados
 
 Depois da definicao do Henrique, a trilha inicial de importacao definitiva tambem foi preparada com a seguinte regra provisoria:
 
@@ -49,6 +51,8 @@ Endpoints novos:
 
 - `POST /api/importacoes/planilha/preview`
 - `POST /api/importacoes/:id/importar`
+- `POST /api/importacoes/:id/cancelar`
+- `DELETE /api/importacoes/:id`
 - `GET /api/importacoes`
 - `GET /api/importacoes/:id`
 
@@ -78,6 +82,8 @@ A tela cobre:
 - consulta de lotes recentes
 - consulta de detalhe do lote
 - importacao definitiva do lote
+- cancelamento de lote em `preview`
+- exclusao de lote cancelado ou importado
 
 ## Contrato atual da API
 
@@ -223,6 +229,26 @@ Nesta rodada, a importacao definitiva usa a seguinte inferencia:
 - sem sinal de quitacao: `valor_pago = 0`
 
 Isso funciona como passo inicial, mas deve ser homologado com o cartorio.
+
+### `POST /api/importacoes/:id/cancelar`
+
+Cancela um lote ainda em `preview`.
+
+Regras:
+
+- nao apaga o lote
+- muda o status para `cancelado`
+- impede nova importacao desse lote
+
+### `DELETE /api/importacoes/:id`
+
+Exclui um lote antigo.
+
+Regras:
+
+- para lotes `preview`, `cancelado` ou `falha`: remove lote e staging
+- para lotes `importado` ou `importado_parcial`: remove tambem os atos criados por aquele lote
+- escreventes auto-criados pela importacao sao removidos apenas se continuarem sem referencias em `atos`, `usuarios`, `reembolsos` ou `reivindicacoes`
 
 ## Proximo passo tecnico recomendado
 

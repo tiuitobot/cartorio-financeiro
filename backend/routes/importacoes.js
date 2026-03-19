@@ -68,7 +68,18 @@ async function persistPreview(preview, uploadedByUserId) {
   }
 }
 
-async function fetchLoteById(loteId, queryable = db) {
+async function fetchLoteById(loteId, queryable = db, { forUpdate = false } = {}) {
+  if (forUpdate) {
+    const { rows } = await queryable.query(
+      `SELECT *
+         FROM import_lotes
+        WHERE id = $1
+        FOR UPDATE`,
+      [loteId]
+    );
+    return rows[0] || null;
+  }
+
   const { rows } = await queryable.query(
     `SELECT il.*, u.nome AS uploaded_by_nome
        FROM import_lotes il
@@ -77,6 +88,231 @@ async function fetchLoteById(loteId, queryable = db) {
     [loteId]
   );
   return rows[0] || null;
+}
+
+function toIntList(values) {
+  if (!Array.isArray(values)) return [];
+
+  return [...new Set(
+    values
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  )];
+}
+
+function extractImportResult(summary = {}) {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+    return null;
+  }
+
+  const importResult = summary.import_result;
+  if (!importResult || typeof importResult !== 'object' || Array.isArray(importResult)) {
+    return null;
+  }
+
+  return importResult;
+}
+
+function extractCreatedEscreventeIds(importResult = {}) {
+  if (!Array.isArray(importResult.created_escreventes)) return [];
+
+  return toIntList(
+    importResult.created_escreventes.map((item) =>
+      typeof item === 'object' && item !== null ? item.id : item
+    )
+  );
+}
+
+async function findEscreventeBlockingRefs(client, escreventeId) {
+  const { rows } = await client.query(
+    `SELECT
+       EXISTS(SELECT 1 FROM usuarios WHERE escrevente_id = $1) AS tem_usuarios,
+       EXISTS(SELECT 1 FROM pagamentos_reembolso WHERE escrevente_id = $1) AS tem_reembolsos,
+       EXISTS(SELECT 1 FROM reivindicacoes WHERE escrevente_id = $1) AS tem_reivindicacoes,
+       EXISTS(
+         SELECT 1
+           FROM atos
+          WHERE captador_id = $1
+             OR executor_id = $1
+             OR signatario_id = $1
+             OR escrevente_reembolso_id = $1
+       ) AS tem_atos`,
+    [escreventeId]
+  );
+
+  const row = rows[0] || {};
+  const refs = [];
+  if (row.tem_usuarios) refs.push('usuários');
+  if (row.tem_reembolsos) refs.push('reembolsos');
+  if (row.tem_reivindicacoes) refs.push('reivindicações');
+  if (row.tem_atos) refs.push('atos');
+  return refs;
+}
+
+async function deleteImportedEscreventesIfOrphan(client, importResult) {
+  const ids = extractCreatedEscreventeIds(importResult);
+  const deleted = [];
+  const skipped = [];
+
+  for (const escreventeId of ids) {
+    const existing = await client.query(
+      'SELECT id, nome, taxa FROM escreventes WHERE id = $1',
+      [escreventeId]
+    );
+    const row = existing.rows[0];
+
+    if (!row) {
+      skipped.push({
+        id: escreventeId,
+        nome: null,
+        motivo: 'escrevente já não existe mais no banco',
+      });
+      continue;
+    }
+
+    const blockingRefs = await findEscreventeBlockingRefs(client, escreventeId);
+    if (blockingRefs.length) {
+      skipped.push({
+        id: row.id,
+        nome: row.nome,
+        motivo: `preservado por ainda possuir referência em ${blockingRefs.join(', ')}`,
+      });
+      continue;
+    }
+
+    const deletedResult = await client.query(
+      'DELETE FROM escreventes WHERE id = $1 RETURNING id, nome, taxa',
+      [escreventeId]
+    );
+
+    if (deletedResult.rows[0]) {
+      deleted.push(deletedResult.rows[0]);
+    }
+  }
+
+  return { deleted, skipped };
+}
+
+async function deleteLoteAndRollback(loteId, actorUserId) {
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const lote = await fetchLoteById(loteId, client, { forUpdate: true });
+    if (!lote) {
+      await client.query('ROLLBACK');
+      return { notFound: true };
+    }
+
+    const importResult = extractImportResult(lote.summary || {});
+    const importedIds = toIntList(importResult?.imported_ids || []);
+    const importedCount = Number.parseInt(importResult?.imported || 0, 10) || 0;
+
+    if (['importado', 'importado_parcial'].includes(lote.status) && importedCount > 0 && importedIds.length === 0) {
+      await client.query('ROLLBACK');
+      return { rollbackUnavailable: true, lote };
+    }
+
+    const linhasCountResult = await client.query(
+      'SELECT COUNT(*)::int AS total FROM import_linhas WHERE lote_id = $1',
+      [loteId]
+    );
+    const deletedLinhas = linhasCountResult.rows[0]?.total || 0;
+
+    let deletedAtos = [];
+    if (importedIds.length > 0) {
+      const deleteAtosResult = await client.query(
+        'DELETE FROM atos WHERE id = ANY($1::int[]) RETURNING id',
+        [importedIds]
+      );
+      deletedAtos = deleteAtosResult.rows.map((row) => row.id);
+    }
+
+    const escreventesResult = await deleteImportedEscreventesIfOrphan(client, importResult);
+
+    await client.query(
+      'DELETE FROM import_lotes WHERE id = $1',
+      [loteId]
+    );
+
+    await client.query('COMMIT');
+    return {
+      lote_id: loteId,
+      deleted: true,
+      status_anterior: lote.status,
+      deleted_linhas: deletedLinhas,
+      deleted_imported_atos: deletedAtos.length,
+      deleted_imported_ato_ids: deletedAtos,
+      deleted_created_escreventes: escreventesResult.deleted,
+      skipped_created_escreventes: escreventesResult.skipped,
+      deleted_by_user_id: actorUserId,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function cancelLote(loteId, actorUserId) {
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const lote = await fetchLoteById(loteId, client, { forUpdate: true });
+    if (!lote) {
+      await client.query('ROLLBACK');
+      return { notFound: true };
+    }
+
+    if (lote.status === 'cancelado') {
+      await client.query('COMMIT');
+      return {
+        lote_id: loteId,
+        status: 'cancelado',
+        alreadyCancelled: true,
+        summary: lote.summary || {},
+      };
+    }
+
+    if (lote.status !== 'preview') {
+      await client.query('ROLLBACK');
+      return { invalidStatus: true, lote };
+    }
+
+    const summary = {
+      ...(lote.summary || {}),
+      cancel_result: {
+        cancelled_by_user_id: actorUserId,
+        cancelled_at: new Date().toISOString(),
+      },
+    };
+
+    await client.query(
+      `UPDATE import_lotes
+          SET status = 'cancelado',
+              summary = $2,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [loteId, JSON.stringify(summary)]
+    );
+
+    await client.query('COMMIT');
+    return {
+      lote_id: loteId,
+      status: 'cancelado',
+      alreadyCancelled: false,
+      summary,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function inferValorPago(normalized) {
@@ -441,6 +677,62 @@ router.get('/:id', authMiddleware, requirePerfil('admin', 'financeiro', 'chefe_f
     res.status(500).json({ erro: 'Erro interno' });
   }
 });
+
+router.post(
+  '/:id/cancelar',
+  authMiddleware,
+  requirePerfil('admin', 'financeiro', 'chefe_financeiro'),
+  async (req, res) => {
+    const loteId = Number.parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(loteId)) {
+      return res.status(400).json({ erro: 'Lote inválido' });
+    }
+
+    try {
+      const result = await cancelLote(loteId, req.user.id);
+      if (result.notFound) {
+        return res.status(404).json({ erro: 'Lote não encontrado' });
+      }
+      if (result.invalidStatus) {
+        return res.status(409).json({ erro: 'Somente lotes em preview podem ser cancelados' });
+      }
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ erro: 'Erro interno' });
+    }
+  }
+);
+
+router.delete(
+  '/:id',
+  authMiddleware,
+  requirePerfil('admin', 'financeiro', 'chefe_financeiro'),
+  async (req, res) => {
+    const loteId = Number.parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(loteId)) {
+      return res.status(400).json({ erro: 'Lote inválido' });
+    }
+
+    try {
+      const result = await deleteLoteAndRollback(loteId, req.user.id);
+      if (result.notFound) {
+        return res.status(404).json({ erro: 'Lote não encontrado' });
+      }
+      if (result.rollbackUnavailable) {
+        return res.status(409).json({
+          erro: 'Este lote não pode ser excluído automaticamente porque o rastreio dos atos importados está incompleto',
+        });
+      }
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ erro: 'Erro interno' });
+    }
+  }
+);
 
 router.post(
   '/:id/importar',

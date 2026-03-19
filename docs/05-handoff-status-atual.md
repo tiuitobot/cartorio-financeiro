@@ -70,6 +70,7 @@ Foram feitos os seguintes ajustes:
 - projeto Railway separado para homologacao publica
 - gerador de lote `.xlsx` controlado para homologacao
 - bootstrap de sistema vazio via UI, com criacao automatica de escreventes faltantes
+- cancelamento de lote em preview e exclusao de lotes passados com rollback dos atos importados
 
 ## O que esta pronto
 
@@ -93,8 +94,10 @@ Foram feitos os seguintes ajustes:
 - parser da planilha `Controle_Diario_2026_padronizado.xlsx`
 - endpoints de staging em `GET/POST /api/importacoes`
 - endpoint de importacao definitiva em `POST /api/importacoes/:id/importar`
+- endpoint de cancelamento em `POST /api/importacoes/:id/cancelar`
+- endpoint de exclusao em `DELETE /api/importacoes/:id`
 - tela `Importações` no frontend conectada a `GET/POST /api/importacoes`
-- teste E2E cobrindo upload, preview e importacao
+- teste E2E cobrindo upload, preview, cancelamento, importacao e exclusao com rollback
 - documentacao do ambiente Railway de homologacao
 - script para gerar lote `.xlsx` de homologacao sem depender da planilha real
 - importacao opcional com criacao automatica de escreventes e taxa padrao configuravel

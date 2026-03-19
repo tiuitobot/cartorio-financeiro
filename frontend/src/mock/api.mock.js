@@ -672,6 +672,18 @@ export const apiMock = {
     throw new Error('Importação definitiva indisponível no modo mock');
   },
 
+  cancelarImportacao: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Cancelamento de lote indisponível no modo mock');
+  },
+
+  deletarImportacao: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Exclusão de lote indisponível no modo mock');
+  },
+
   // ── Usuários ──────────────────────────────────────────────────────────────
   getUsuarios: async () => {
     await delay();

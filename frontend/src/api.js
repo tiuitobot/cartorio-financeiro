@@ -75,6 +75,8 @@ const apiReal = {
     return reqForm('POST', '/importacoes/planilha/preview', formData);
   },
   importarLote:        (id, data={})   => req('POST', `/importacoes/${id}/importar`, data),
+  cancelarImportacao:  (id)            => req('POST', `/importacoes/${id}/cancelar`, {}),
+  deletarImportacao:   (id)            => req('DELETE', `/importacoes/${id}`),
 
   // Usuários (admin)
   getUsuarios:   ()             => req('GET',  '/usuarios'),
