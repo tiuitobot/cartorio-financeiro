@@ -50,6 +50,7 @@ app.use('/api/auth/login', rateLimit({
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/escreventes',   require('./routes/escreventes'));
 app.use('/api/atos',          require('./routes/atos'));
+app.use('/api/importacoes',   require('./routes/importacoes'));
 app.use('/api/reembolsos',    require('./routes/reembolsos'));
 app.use('/api/reivindicacoes',require('./routes/reivindicacoes'));
 app.use('/api/usuarios',      require('./routes/usuarios'));

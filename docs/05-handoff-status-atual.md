@@ -1,6 +1,6 @@
 # Handoff - Status Atual
 
-Data de referencia: 18/03/2026.
+Data de referencia: 19/03/2026.
 
 ## Resumo do que foi feito
 
@@ -63,6 +63,10 @@ Foram feitos os seguintes ajustes:
 - validacao minima de atos no backend para campos obrigatorios, valores negativos e reembolso inconsistente
 - migration incremental com constraints e unicidade parcial de `controle` e `livro + pagina`
 - filtro de `GET /reembolsos` e `GET /reivindicacoes` por perfil `escrevente`
+- staging de importacao da planilha do controle diario com parser de `.xlsx`, persistencia de lotes e preview por API
+- importacao inicial do controle diario para `atos`, usando `ESCREVENTE` como `captador_id`
+- tela frontend de `Importações` com upload, preview, listagem de lotes e importacao definitiva
+- E2E reproduzivel do fluxo de importacao com Playwright
 
 ## O que esta pronto
 
@@ -83,6 +87,11 @@ Foram feitos os seguintes ajustes:
 - testes unitarios da regra de escopo de listagem por perfil
 - build do frontend validado localmente
 - scripts de bootstrap local para PostgreSQL nativo
+- parser da planilha `Controle_Diario_2026_padronizado.xlsx`
+- endpoints de staging em `GET/POST /api/importacoes`
+- endpoint de importacao definitiva em `POST /api/importacoes/:id/importar`
+- tela `Importações` no frontend conectada a `GET/POST /api/importacoes`
+- teste E2E cobrindo upload, preview e importacao
 
 ### Pronto em nivel de conceito
 
@@ -105,6 +114,7 @@ Foram feitos os seguintes ajustes:
 - revisao de exposicao de dados sensiveis
 - endurecimento do modelo de auditoria
 - execucao ponta a ponta com banco real neste ambiente
+- definicao final de `executor_id` e `signatario_id` na importacao da planilha
 
 ## Pendencias prioritarias
 
@@ -121,6 +131,7 @@ Foram feitos os seguintes ajustes:
 2. melhorar trilha de auditoria sem apagar/recriar correcoes
 3. revisar a estrategia de unicidade parcial e limpar placeholders antigos
 4. validar migrations em banco real e automatizar o apply no deploy
+5. homologar a inferencia provisoria de pagamento da planilha
 
 ### Aplicacao
 
@@ -128,6 +139,7 @@ Foram feitos os seguintes ajustes:
 2. remover workarounds redundantes do frontend agora que `C2/C3/C4/C6` ja estao no backend
 3. quebrar `frontend/src/App.jsx` em modulos
 4. adicionar logs mais estruturados
+5. fechar a regra de `executor_id` e `signatario_id` na planilha
 
 ### Infra
 
@@ -151,6 +163,7 @@ Foram feitos os seguintes ajustes:
 - o deploy real ainda pode exigir ajuste fino de build
 - a migration de unicidade pode falhar em bases legadas com duplicidade valida
 - os documentos de infra ainda sao guias, nao automacao completa
+- a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para pagamento, executor e signatario
 
 ## Arquivos-chave para continuidade
 
@@ -180,15 +193,20 @@ Foram feitos os seguintes ajustes:
 - [backend/db/schema.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/schema.sql)
 - [backend/db/migrations/0001_initial.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0001_initial.sql)
 - [backend/db/migrations/0002_atos_constraints_and_server_stamps.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0002_atos_constraints_and_server_stamps.sql)
+- [backend/db/migrations/0003_import_lotes_preview.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0003_import_lotes_preview.sql)
+- [backend/db/migrations/0004_atos_importacao_planilha.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0004_atos_importacao_planilha.sql)
 - [backend/scripts/run-migrations.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/run-migrations.js)
 - [backend/scripts/create-admin.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/create-admin.js)
 - [backend/lib/finance.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/finance.js)
 - [backend/lib/audit.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/audit.js)
 - [backend/lib/list-scopes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/list-scopes.js)
+- [backend/lib/controle-diario-import.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/controle-diario-import.js)
 - [backend/routes/atos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/atos.js)
+- [backend/routes/importacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/importacoes.js)
 - [backend/routes/reembolsos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/reembolsos.js)
 - [backend/routes/reivindicacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/reivindicacoes.js)
 - [backend/tests/audit.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/audit.test.js)
+- [backend/tests/controle-diario-import.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/controle-diario-import.test.js)
 - [backend/tests/finance.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/finance.test.js)
 - [backend/tests/list-scopes.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/list-scopes.test.js)
 - [frontend/src/App.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/App.jsx)

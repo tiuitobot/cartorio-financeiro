@@ -43,6 +43,9 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [12-railway-primeiro-deploy.md](/home/linuxadmin/repos/cartorio-financeiro/docs/12-railway-primeiro-deploy.md)
   Runbook do primeiro deploy no Railway com migrations no boot e criação manual do admin.
 
+- [13-importacao-controle-diario.md](/home/linuxadmin/repos/cartorio-financeiro/docs/13-importacao-controle-diario.md)
+  Estado atual da importacao da planilha do cartorio, staging implementado e pendencias de dominio para a importacao definitiva.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.

@@ -1,6 +1,6 @@
 # Smoke E2E com Playwright
 
-Data de referencia: 18/03/2026.
+Data de referencia: 19/03/2026.
 
 ## Objetivo
 
@@ -27,10 +27,14 @@ Fluxos cobertos:
 - navegacao de `Escreventes` e `Usuários` para admin
 - restricao de menu admin para escrevente
 - abertura do modal `Declaro Participação`
+- upload de planilha `.xlsx`
+- preview de importacao
+- importacao definitiva de lote
 
 ## Arquivos
 
 - [playwright.config.js](/home/linuxadmin/repos/cartorio-financeiro/frontend/playwright.config.js)
+- [importacoes.spec.js](/home/linuxadmin/repos/cartorio-financeiro/frontend/tests/e2e/importacoes.spec.js)
 - [smoke.spec.js](/home/linuxadmin/repos/cartorio-financeiro/frontend/tests/e2e/smoke.spec.js)
 - [e2e-api.sh](/home/linuxadmin/repos/cartorio-financeiro/scripts/e2e-api.sh)
 
@@ -50,6 +54,8 @@ O Playwright:
 4. sobe o frontend em `http://127.0.0.1:4173`
 5. executa o smoke no Chromium
 
+No fluxo de importacao, a suite gera uma planilha `.xlsx` temporaria durante o teste. Isso evita dependencia de binario versionado no repositorio e mantem o teste reproduzivel em CI.
+
 ## Precondicoes
 
 - PostgreSQL local disponivel
@@ -62,3 +68,4 @@ O Playwright:
 - a suite usa `4173` fixo no frontend para nao depender de `5173` livre
 - se existir Chromium do sistema em `/snap/bin/chromium`, ele sera usado
 - se nao existir, o Playwright cai para o browser que estiver instalado para ele
+- o teste de importacao grava atos no banco da suite; por isso os smokes validam contagem minima e nao numero fixo de linhas

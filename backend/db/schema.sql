@@ -21,10 +21,11 @@ CREATE TABLE IF NOT EXISTS escreventes_compartilhamento (
 
 CREATE TABLE IF NOT EXISTS atos (
   id                      SERIAL PRIMARY KEY,
-  controle                CHAR(5) NOT NULL,
+  controle                VARCHAR(20) NOT NULL,
   livro                   VARCHAR(10) NOT NULL,
   pagina                  VARCHAR(5) NOT NULL,
   data_ato                DATE,
+  tipo_ato                VARCHAR(255),
   captador_id             INTEGER REFERENCES escreventes(id),
   executor_id             INTEGER REFERENCES escreventes(id),
   signatario_id           INTEGER REFERENCES escreventes(id),
@@ -37,12 +38,13 @@ CREATE TABLE IF NOT EXISTS atos (
   valor_pago              DECIMAL(12,2) DEFAULT 0,
   data_pagamento          DATE,
   forma_pagamento         VARCHAR(50),
+  controle_cheques        VARCHAR(255),
   status                  VARCHAR(20) DEFAULT 'pendente' CHECK (status IN ('pendente','pago','pago_menor','pago_maior')),
   verificado_por          VARCHAR(255),
   verificado_em           VARCHAR(50),
   comissao_override       JSONB,
   notas                   TEXT,
-  CONSTRAINT chk_atos_controle_formato CHECK (controle ~ '^[0-9]{5}$'),
+  CONSTRAINT chk_atos_controle_formato CHECK (controle ~ '^[0-9]{1,20}$'),
   CONSTRAINT chk_atos_livro_digitos CHECK (livro ~ '^[0-9]+$'),
   CONSTRAINT chk_atos_pagina_digitos CHECK (pagina ~ '^[0-9]+$'),
   CONSTRAINT chk_atos_valores_nao_negativos CHECK (
@@ -107,6 +109,36 @@ CREATE TABLE IF NOT EXISTS usuarios (
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS import_lotes (
+  id                  SERIAL PRIMARY KEY,
+  tipo                VARCHAR(50) NOT NULL DEFAULT 'controle_diario_xlsx',
+  arquivo_nome        VARCHAR(255) NOT NULL,
+  arquivo_sha256      VARCHAR(64) NOT NULL,
+  sheet_name          VARCHAR(255) NOT NULL,
+  headers             JSONB NOT NULL DEFAULT '[]'::jsonb,
+  total_linhas        INTEGER NOT NULL DEFAULT 0,
+  linhas_validas      INTEGER NOT NULL DEFAULT 0,
+  linhas_com_erro     INTEGER NOT NULL DEFAULT 0,
+  linhas_com_alerta   INTEGER NOT NULL DEFAULT 0,
+  summary             JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status              VARCHAR(20) NOT NULL DEFAULT 'preview'
+                        CHECK (status IN ('preview','importado','importado_parcial','cancelado','falha')),
+  uploaded_by_user_id INTEGER REFERENCES usuarios(id),
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS import_linhas (
+  id              SERIAL PRIMARY KEY,
+  lote_id         INTEGER NOT NULL REFERENCES import_lotes(id) ON DELETE CASCADE,
+  numero_linha    INTEGER NOT NULL,
+  raw_data        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  normalized_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  errors          JSONB NOT NULL DEFAULT '[]'::jsonb,
+  warnings        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_atos_controle       ON atos(controle);
 CREATE INDEX IF NOT EXISTS idx_atos_livro_pagina   ON atos(livro, pagina);
@@ -123,6 +155,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_atos_livro_pagina_validos
 CREATE INDEX IF NOT EXISTS idx_correcoes_ato       ON correcoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_reiv_ato            ON reivindicacoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_reiv_escrevente     ON reivindicacoes(escrevente_id);
+CREATE INDEX IF NOT EXISTS idx_import_lotes_created_at ON import_lotes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_lotes_uploaded_by ON import_lotes(uploaded_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_import_linhas_lote  ON import_linhas(lote_id, numero_linha);
 
 -- Trigger: atualiza updated_at automaticamente
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -136,5 +171,8 @@ DO $$ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_escreventes_updated_at') THEN
     CREATE TRIGGER trg_escreventes_updated_at BEFORE UPDATE ON escreventes FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_import_lotes_updated_at') THEN
+    CREATE TRIGGER trg_import_lotes_updated_at BEFORE UPDATE ON import_lotes FOR EACH ROW EXECUTE FUNCTION set_updated_at();
   END IF;
 END $$;

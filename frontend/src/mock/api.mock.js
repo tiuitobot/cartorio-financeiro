@@ -647,6 +647,31 @@ export const apiMock = {
     return { ..._reivindicacoes[idx] };
   },
 
+  // ── Importações ────────────────────────────────────────────────────────────
+  getImportacoes: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    return [];
+  },
+
+  getImportacao: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Preview de importação indisponível no modo mock');
+  },
+
+  previewImportacao: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Upload de planilha indisponível no modo mock');
+  },
+
+  importarLote: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Importação definitiva indisponível no modo mock');
+  },
+
   // ── Usuários ──────────────────────────────────────────────────────────────
   getUsuarios: async () => {
     await delay();

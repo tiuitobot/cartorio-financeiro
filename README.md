@@ -9,6 +9,7 @@ Base limpa do projeto extraida do zip original e preparada para deploy cloud-por
 - `docs/`: analise de hospedagem, MVP no Railway e migracao para Google Cloud
 - `infra/railway/`: notas operacionais para deploy inicial
 - `infra/gcp/`: esqueleto de migracao para Cloud Run + Cloud SQL
+- `backend/lib/controle-diario-import.js`: parser e normalizacao da planilha do controle diario
 
 ## Objetivo desta organizacao
 
@@ -46,6 +47,16 @@ Executados a partir de `backend/`:
 - `npm run admin:create`
 - `npm run seed:dev`
 - `npm test`
+
+## Importacao da planilha do cartorio
+
+Ja existe trilha de staging para upload e preview da planilha `Controle_Diario_2026_padronizado.xlsx`.
+
+- documentacao: [docs/13-importacao-controle-diario.md](/home/linuxadmin/repos/cartorio-financeiro/docs/13-importacao-controle-diario.md)
+- parser: [backend/lib/controle-diario-import.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/controle-diario-import.js)
+- rota: [backend/routes/importacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/importacoes.js)
+
+Nesta fase o sistema ainda nao grava a planilha direto em `atos`. Primeiro ele faz parse, validacao e persistencia em staging.
 
 ## Scripts de infra local
 

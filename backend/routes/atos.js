@@ -9,7 +9,11 @@ const {
 } = require('../lib/audit');
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-const padCtrl = v => String(v||'').replace(/\D/g,'').padStart(5,'0');
+function normalizeControle(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '00000';
+  return digits.length < 5 ? digits.padStart(5, '0') : digits;
+}
 
 function toMoney(value) {
   const parsed = Number.parseFloat(value || 0);
@@ -31,10 +35,11 @@ function normalizeAtoPayload(payload, previousAto = null) {
   const verificadoPor = normalizeNullableString(payload.verificado_por);
 
   return {
-    controle: padCtrl(payload.controle),
+    controle: normalizeControle(payload.controle),
     livro: String(Number.parseInt(payload.livro, 10) || 0),
     pagina: String(Number.parseInt(payload.pagina, 10) || 0),
     data_ato: normalizeNullableString(payload.data_ato),
+    tipo_ato: normalizeNullableString(payload.tipo_ato),
     captador_id: toOptionalInt(payload.captador_id),
     executor_id: toOptionalInt(payload.executor_id),
     signatario_id: toOptionalInt(payload.signatario_id),
@@ -47,6 +52,7 @@ function normalizeAtoPayload(payload, previousAto = null) {
     valor_pago: valorPago,
     data_pagamento: normalizeNullableString(payload.data_pagamento),
     forma_pagamento: normalizeNullableString(payload.forma_pagamento),
+    controle_cheques: normalizeNullableString(payload.controle_cheques),
     status: calcStatus(
       emolumentos,
       repasses,
@@ -158,7 +164,7 @@ router.get('/', authMiddleware, async (req, res) => {
     if (fim) { where.push(`a.data_ato<=$${i++}`); params.push(fim); }
     if (busca) {
       where.push(`(a.controle=$${i} OR a.controle LIKE $${i+1})`);
-      params.push(padCtrl(busca)); params.push('%'+busca.replace(/\D/g,'')+'%'); i+=2;
+      params.push(normalizeControle(busca)); params.push('%'+busca.replace(/\D/g,'')+'%'); i+=2;
     }
     if (livro) { where.push(`a.livro=$${i++}`); params.push(String(parseInt(livro))); }
     if (pagina) { where.push(`a.pagina=$${i++}`); params.push(String(parseInt(pagina))); }
@@ -210,17 +216,17 @@ router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_finan
 
   try {
     const { rows } = await db.query(`
-      INSERT INTO atos(controle,livro,pagina,data_ato,captador_id,executor_id,signatario_id,
+      INSERT INTO atos(controle,livro,pagina,data_ato,tipo_ato,captador_id,executor_id,signatario_id,
         emolumentos,repasses,issqn,reembolso_tabeliao,reembolso_escrevente,escrevente_reembolso_id,
-        valor_pago,data_pagamento,forma_pagamento,status,verificado_por,verificado_em,
+        valor_pago,data_pagamento,forma_pagamento,controle_cheques,status,verificado_por,verificado_em,
         comissao_override,notas)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
       RETURNING *`,
       [atoPayload.controle, atoPayload.livro, atoPayload.pagina,
-       atoPayload.data_ato, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
+       atoPayload.data_ato, atoPayload.tipo_ato, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
        atoPayload.emolumentos, atoPayload.repasses, atoPayload.issqn, atoPayload.reembolso_tabeliao, atoPayload.reembolso_escrevente,
        atoPayload.escrevente_reembolso_id, atoPayload.valor_pago, atoPayload.data_pagamento, atoPayload.forma_pagamento,
-       atoPayload.status, atoPayload.verificado_por, atoPayload.verificado_em,
+       atoPayload.controle_cheques, atoPayload.status, atoPayload.verificado_por, atoPayload.verificado_em,
        atoPayload.comissao_override, atoPayload.notas]
     );
     const ato = await fetchAtoById(rows[0].id);
@@ -252,21 +258,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const validationError = validateAtoPayload(atoPayload);
     if (validationError) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ erro: validationError });
-    }
+        return res.status(400).json({ erro: validationError });
+      }
 
     await client.query(`
       UPDATE atos SET
-        controle=$1,livro=$2,pagina=$3,data_ato=$4,captador_id=$5,executor_id=$6,signatario_id=$7,
-        emolumentos=$8,repasses=$9,issqn=$10,reembolso_tabeliao=$11,reembolso_escrevente=$12,
-        escrevente_reembolso_id=$13,valor_pago=$14,data_pagamento=$15,forma_pagamento=$16,
-        status=$17,verificado_por=$18,verificado_em=$19,comissao_override=$20,notas=$21
-      WHERE id=$22`,
+        controle=$1,livro=$2,pagina=$3,data_ato=$4,tipo_ato=$5,captador_id=$6,executor_id=$7,signatario_id=$8,
+        emolumentos=$9,repasses=$10,issqn=$11,reembolso_tabeliao=$12,reembolso_escrevente=$13,
+        escrevente_reembolso_id=$14,valor_pago=$15,data_pagamento=$16,forma_pagamento=$17,controle_cheques=$18,
+        status=$19,verificado_por=$20,verificado_em=$21,comissao_override=$22,notas=$23
+      WHERE id=$24`,
       [atoPayload.controle, atoPayload.livro, atoPayload.pagina,
-       atoPayload.data_ato, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
+       atoPayload.data_ato, atoPayload.tipo_ato, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
        atoPayload.emolumentos, atoPayload.repasses, atoPayload.issqn, atoPayload.reembolso_tabeliao, atoPayload.reembolso_escrevente,
        atoPayload.escrevente_reembolso_id, atoPayload.valor_pago, atoPayload.data_pagamento, atoPayload.forma_pagamento,
-       atoPayload.status, atoPayload.verificado_por, atoPayload.verificado_em,
+       atoPayload.controle_cheques, atoPayload.status, atoPayload.verificado_por, atoPayload.verificado_em,
        atoPayload.comissao_override, atoPayload.notas, id]
     );
     // Sincroniza correções

@@ -21,7 +21,9 @@ test.describe('smoke e2e', () => {
 
     await page.getByRole('button', { name: /Livros de Notas/ }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
-    await expect(page.locator('table tbody tr')).toHaveCount(6);
+    const linhasAtos = page.locator('table tbody tr');
+    await expect(linhasAtos.first()).toBeVisible();
+    expect(await linhasAtos.count()).toBeGreaterThanOrEqual(6);
     await expect(page.getByRole('button', { name: /Novo Ato/ })).toBeVisible();
     await expect(page.getByText('00047')).toBeVisible();
 
@@ -50,8 +52,11 @@ test.describe('smoke e2e', () => {
 
     await page.getByRole('button', { name: /Livros de Notas/ }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
-    await expect(page.locator('table tbody tr')).toHaveCount(5);
+    const linhasAtos = page.locator('table tbody tr');
+    await expect(linhasAtos.first()).toBeVisible();
+    expect(await linhasAtos.count()).toBeGreaterThanOrEqual(5);
     await expect(page.getByRole('button', { name: /Declaro Participação/ })).toBeVisible();
+    await expect(page.getByText('00044')).toBeVisible();
 
     await page.getByRole('button', { name: /Declaro Participação/ }).click();
     await expect(page.getByText('Reivindicação de Participação')).toBeVisible();

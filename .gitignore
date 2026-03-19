@@ -14,6 +14,9 @@ coverage/
 .cache/
 cartorio server.zip:Zone.Identifier
 cartorio server.zip
+Controle_Diario_2026_padronizado.xlsx
+Controle_Diario_2026_padronizado.xlsx:Zone.Identifier
+*.Zone.Identifier
 playwright-report/
 test-results/
 frontend/test-results/

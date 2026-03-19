@@ -7,6 +7,7 @@ import { padControle } from './utils/format.js';
 import TelaLogin      from './pages/TelaLogin.jsx';
 import Dashboard      from './pages/Dashboard.jsx';
 import Atos           from './pages/Atos.jsx';
+import Importacoes    from './pages/Importacoes.jsx';
 import Relatorios     from './pages/Relatorios.jsx';
 import Escreventes    from './pages/Escreventes.jsx';
 import PainelUsuarios from './pages/PainelUsuarios.jsx';
@@ -33,6 +34,7 @@ export default function App() {
   const [modalSenha, setModalSenha]               = useState(false);
   const [busca, setBusca]                         = useState('');
   const [erro, setErro]                           = useState('');
+  const [importacoesRefreshKey, setImportacoesRefreshKey] = useState(0);
 
   const userRole = user?.perfil || 'escrevente';
   const userId   = user?.escrevente_id || null;
@@ -72,6 +74,14 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('cartorio_token');
     setUser(null); setAtos([]); setEscreventes([]);
+  };
+
+  const handleRefresh = async () => {
+    if (view === 'importacoes') {
+      setImportacoesRefreshKey(prev => prev + 1);
+      return;
+    }
+    await carregarDados();
   };
 
   const salvarAto = async (form) => {
@@ -157,6 +167,7 @@ export default function App() {
   const navItems = [
     { key: 'dashboard',  label: 'Dashboard',       icon: '📊' },
     { key: 'atos',       label: 'Livros de Notas',  icon: '📋' },
+    ...(['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) ? [{ key: 'importacoes', label: 'Importações', icon: '📤' }] : []),
     { key: 'relatorios', label: 'Relatórios',       icon: '📈' },
     ...(userRole === 'admin' ? [{ key: 'escreventes', label: 'Escreventes', icon: '👥' }, { key: 'usuarios', label: 'Usuários', icon: '🔑' }] : []),
   ];
@@ -212,12 +223,12 @@ export default function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
             <h1 style={{ margin: 0, color: '#1e293b', fontSize: 22, fontWeight: 800 }}>
-              {{ dashboard: 'Dashboard', atos: 'Livros de Notas', relatorios: 'Relatórios', escreventes: 'Escreventes', usuarios: 'Usuários' }[view]}
+              {{ dashboard: 'Dashboard', atos: 'Livros de Notas', importacoes: 'Importações', relatorios: 'Relatórios', escreventes: 'Escreventes', usuarios: 'Usuários' }[view]}
             </h1>
             <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 2 }}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={carregarDados} title="Recarregar dados" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 16 }}>🔄</button>
+            <button onClick={handleRefresh} title="Recarregar dados" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 16 }}>🔄</button>
             {view === 'atos' && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && (
               <button onClick={() => setModalAto('novo')} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Ato</button>
             )}
@@ -246,6 +257,14 @@ export default function App() {
             onDecisaoFinanceiro={handleDecisaoFinanceiro}
             busca={busca}
             onBusca={setBusca}
+          />
+        )}
+
+        {view === 'importacoes' && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && (
+          <Importacoes
+            refreshKey={importacoesRefreshKey}
+            onImportSuccess={carregarDados}
+            onErro={setErro}
           />
         )}
 

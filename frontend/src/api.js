@@ -13,10 +13,28 @@ const hdr = () => {
   return headers;
 };
 
+const authHdr = () => {
+  const headers = {};
+  const token = tok();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+};
+
 async function req(method, path, body) {
   const opts = { method, headers: hdr() };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const r = await fetch(`${BASE}${path}`, opts);
+  if (r.status === 401) { localStorage.removeItem('cartorio_token'); window.location.reload(); }
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.erro || `Erro ${r.status}`); }
+  return r.status === 204 ? null : r.json();
+}
+
+async function reqForm(method, path, formData) {
+  const r = await fetch(`${BASE}${path}`, {
+    method,
+    headers: authHdr(),
+    body: formData,
+  });
   if (r.status === 401) { localStorage.removeItem('cartorio_token'); window.location.reload(); }
   if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.erro || `Erro ${r.status}`); }
   return r.status === 204 ? null : r.json();
@@ -47,6 +65,16 @@ const apiReal = {
   getReivindicacoes:    ()              => req('GET',  '/reivindicacoes'),
   criarReivindicacao:   (data)         => req('POST', '/reivindicacoes', data),
   atualizarReivindicacao:(id,data)     => req('PUT',  `/reivindicacoes/${id}`, data),
+
+  // Importações
+  getImportacoes:      (params={})     => req('GET',  `/importacoes?${new URLSearchParams(params)}`),
+  getImportacao:       (id, params={}) => req('GET',  `/importacoes/${id}?${new URLSearchParams(params)}`),
+  previewImportacao:   (arquivo)       => {
+    const formData = new FormData();
+    formData.append('arquivo', arquivo);
+    return reqForm('POST', '/importacoes/planilha/preview', formData);
+  },
+  importarLote:        (id)            => req('POST', `/importacoes/${id}/importar`, {}),
 
   // Usuários (admin)
   getUsuarios:   ()             => req('GET',  '/usuarios'),
