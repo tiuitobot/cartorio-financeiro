@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { api } from './api.js';
-import { parseRef } from './utils/format.js';
-import { padControle } from './utils/format.js';
+import { parseRef, padControle, toMoneyNumber } from './utils/format.js';
 
 // Pages
 import TelaLogin      from './pages/TelaLogin.jsx';
@@ -39,6 +38,34 @@ export default function App() {
   const userRole = user?.perfil || 'escrevente';
   const userId   = user?.escrevente_id || null;
 
+  const normalizeComissoes = useCallback((comissoes = []) => (
+    Array.isArray(comissoes)
+      ? comissoes.map((item) => ({
+          ...item,
+          total: toMoneyNumber(item.total),
+          fixo: toMoneyNumber(item.fixo),
+        }))
+      : []
+  ), []);
+
+  const normalizeAto = useCallback((ato) => ({
+    ...ato,
+    total: toMoneyNumber(ato.total),
+    emolumentos: toMoneyNumber(ato.emolumentos),
+    repasses: toMoneyNumber(ato.repasses),
+    issqn: toMoneyNumber(ato.issqn),
+    reembolso_tabeliao: toMoneyNumber(ato.reembolso_tabeliao),
+    reembolso_escrevente: toMoneyNumber(ato.reembolso_escrevente),
+    valor_pago: toMoneyNumber(ato.valor_pago),
+    reembolso_devido_escrevente: toMoneyNumber(ato.reembolso_devido_escrevente),
+    comissoes: normalizeComissoes(ato.comissoes),
+  }), [normalizeComissoes]);
+
+  const normalizeReembolso = useCallback((pagamento) => ({
+    ...pagamento,
+    valor: toMoneyNumber(pagamento.valor),
+  }), []);
+
   // ── Autenticação ao iniciar ──────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('cartorio_token');
@@ -58,14 +85,14 @@ export default function App() {
         api.getReembolsos(),
         api.getReivindicacoes(),
       ]);
-      setAtos(atosData);
+      setAtos(atosData.map(normalizeAto));
       setEscreventes(escsData);
-      setPagamentosReembolso(rembs);
+      setPagamentosReembolso(rembs.map(normalizeReembolso));
       setReivindicacoes(reivs);
     } catch (e) {
       setErro('Erro ao carregar dados: ' + e.message);
     }
-  }, [user]);
+  }, [user, normalizeAto, normalizeReembolso]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
@@ -88,10 +115,10 @@ export default function App() {
     try {
       let ato;
       if (form.id && typeof form.id === 'number' && form.id < 1e12) {
-        ato = await api.atualizarAto(form.id, form);
+        ato = normalizeAto(await api.atualizarAto(form.id, form));
         setAtos(prev => prev.map(a => a.id === ato.id ? ato : a));
       } else {
-        ato = await api.criarAto(form);
+        ato = normalizeAto(await api.criarAto(form));
         setAtos(prev => [...prev, ato]);
       }
       setModalAto(null);
@@ -273,8 +300,8 @@ export default function App() {
             atos={atos}
             escreventes={escreventes}
             pagamentosReembolso={pagamentosReembolso}
-            onAddPagamento={async p => { try { const novo = await api.criarReembolso(p); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
-            onConfirmarReembolso={async id => { try { const atualizado = await api.confirmarReembolso(id); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
+            onAddPagamento={async p => { try { const novo = normalizeReembolso(await api.criarReembolso(p)); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
+            onConfirmarReembolso={async id => { try { const atualizado = normalizeReembolso(await api.confirmarReembolso(id)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
           />
         )}
 

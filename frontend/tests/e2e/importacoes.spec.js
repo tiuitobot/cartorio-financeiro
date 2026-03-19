@@ -71,5 +71,12 @@ test.describe('importações e2e', () => {
 
     await page.locator('input[placeholder="Controle ou L42P15..."]').fill('990001');
     await expect(page.getByText('990001')).toBeVisible();
+
+    await page.getByRole('button', { name: /Relatórios/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Relatórios' })).toBeVisible();
+
+    await page.locator('input[placeholder="Controle ou L42P15"]').fill('990001');
+    const recebidoCard = page.locator('div').filter({ hasText: /^Recebido$/ }).locator('..');
+    await expect(recebidoCard).toContainText('R$ 850,00');
   });
 });
