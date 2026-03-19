@@ -35,6 +35,51 @@ function HintBox({ title, color, background, border, children }) {
   );
 }
 
+function ValidationAccordion({ title, color, borderColor, countLabel, items, emptyLabel }) {
+  return (
+    <details style={{ border: `1px solid ${borderColor}`, borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
+      <summary
+        style={{
+          cursor: 'pointer',
+          listStyle: 'none',
+          padding: '14px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          fontWeight: 800,
+          color,
+          background: `${borderColor}22`,
+        }}
+      >
+        <span>{title}</span>
+        <span style={{ fontSize: 12, color: '#475569', fontWeight: 700 }}>{countLabel}</span>
+      </summary>
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {items.length === 0 && (
+          <div style={{ color: '#64748b', fontSize: 13 }}>{emptyLabel}</div>
+        )}
+        {items.map((item) => (
+          <div
+            key={item.key}
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: 10,
+              padding: '10px 12px',
+              background: '#f8fafc',
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#1e3a5f', marginBottom: 4 }}>
+              {item.scope}
+            </div>
+            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.45 }}>{item.message}</div>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro }) {
   const [arquivo, setArquivo] = useState(null);
   const [inputKey, setInputKey] = useState(0);
@@ -78,7 +123,7 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
 
     setLoadingDetalhe(true);
     try {
-      const data = await api.getImportacao(loteId, { limit: 100, offset: 0 });
+      const data = await api.getImportacao(loteId, { limit: 500, offset: 0 });
       setLoteDetalhe(data);
     } catch (error) {
       onErro?.(`Erro ao carregar lote: ${error.message}`);
@@ -100,6 +145,33 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
   const importResult = summary.import_result || null;
   const fileWarnings = Array.isArray(summary.file_warnings) ? summary.file_warnings : [];
   const previewRows = loteDetalhe?.linhas || [];
+  const previewErrorItems = useMemo(
+    () => previewRows.flatMap((row) =>
+      (Array.isArray(row.errors) ? row.errors : []).map((message, index) => ({
+        key: `error-${row.id || row.numero_linha}-${index}-${message}`,
+        scope: `Linha ${row.numero_linha}`,
+        message,
+      }))
+    ),
+    [previewRows]
+  );
+  const previewWarningItems = useMemo(
+    () => [
+      ...fileWarnings.map((message, index) => ({
+        key: `file-warning-${index}-${message}`,
+        scope: 'Arquivo',
+        message,
+      })),
+      ...previewRows.flatMap((row) =>
+        (Array.isArray(row.warnings) ? row.warnings : []).map((message, index) => ({
+          key: `warning-${row.id || row.numero_linha}-${index}-${message}`,
+          scope: `Linha ${row.numero_linha}`,
+          message,
+        }))
+      ),
+    ],
+    [fileWarnings, previewRows]
+  );
   const canImport = selectedLote?.status === 'preview' && (selectedLote?.linhas_validas || 0) > 0;
   const canCancel = selectedLote?.status === 'preview';
   const canDelete = Boolean(selectedLote);
@@ -428,19 +500,6 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
 
               {loadingDetalhe && <div style={{ color: '#64748b', fontSize: 13 }}>Carregando preview detalhado...</div>}
 
-              {fileWarnings.length > 0 && (
-                <HintBox
-                  title="Alertas do arquivo"
-                  color="#92400e"
-                  background="#fffbeb"
-                  border="#fde68a"
-                >
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {fileWarnings.map((warning) => <li key={warning}>{warning}</li>)}
-                  </ul>
-                </HintBox>
-              )}
-
               {importResult && (
                 <HintBox
                   title="Resultado da importação"
@@ -505,10 +564,29 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
                 <CountCard label="Alertas" value={selectedLote.linhas_com_alerta} color="#d97706" />
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                <ValidationAccordion
+                  title="Erros detalhados do preview"
+                  color="#b91c1c"
+                  borderColor="#fecaca"
+                  countLabel={`${previewErrorItems.length} ocorrência(s)`}
+                  items={previewErrorItems}
+                  emptyLabel="Nenhum erro encontrado neste lote."
+                />
+                <ValidationAccordion
+                  title="Alertas detalhados do preview"
+                  color="#92400e"
+                  borderColor="#fde68a"
+                  countLabel={`${selectedLote.linhas_com_alerta || 0} linha(s) com alerta${fileWarnings.length ? ` • ${fileWarnings.length} alerta(s) de arquivo` : ''}`}
+                  items={previewWarningItems}
+                  emptyLabel="Nenhum alerta encontrado neste lote."
+                />
+              </div>
+
               <div>
                 <ST>Linhas do preview</ST>
                 <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
-                  Exibindo até {previewRows.length} linhas persistidas em staging. Os dados só entram em <code>atos</code> após clicar em importar.
+                  Exibindo {previewRows.length} linha(s) persistidas em staging. Os dados só entram em <code>atos</code> após clicar em importar.
                 </div>
                 <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 12 }}>
                   <table style={{ width: '100%', minWidth: 960, borderCollapse: 'collapse', fontSize: 13 }}>
