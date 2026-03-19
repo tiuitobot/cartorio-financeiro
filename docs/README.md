@@ -46,6 +46,12 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [13-importacao-controle-diario.md](/home/linuxadmin/repos/cartorio-financeiro/docs/13-importacao-controle-diario.md)
   Estado atual da importacao da planilha do cartorio, staging implementado e pendencias de dominio para a importacao definitiva.
 
+- [14-railway-homologacao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/14-railway-homologacao.md)
+  Ambiente publico e isolado de homologacao no Railway, com URL, credenciais seeded e operacao basica.
+
+- [15-lote-homologacao-controlado.md](/home/linuxadmin/repos/cartorio-financeiro/docs/15-lote-homologacao-controlado.md)
+  Lote `.xlsx` controlado para testar upload, preview e importacao sem depender da planilha real do cartorio.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.

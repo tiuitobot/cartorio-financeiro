@@ -10,6 +10,7 @@
     "migrate": "node scripts/run-migrations.js",
     "admin:create": "node scripts/create-admin.js",
     "seed:dev": "node scripts/seed-dev.js",
+    "fixture:homolog:xlsx": "node scripts/generate-homolog-import-xlsx.js",
     "test": "node --test tests/**/*.test.js"
   },
   "dependencies": {

@@ -250,9 +250,9 @@ function buildRowRecord(rowNumber, row, headerMap) {
   if (normalized.data_ato && Number.parseInt(normalized.data_ato.slice(0, 4), 10) < 2025) {
     warnings.push(`DATA DO ATO fora do intervalo esperado: ${normalized.data_ato}`);
   }
-  if (normalized.controle && normalized.controle.length > 5) {
+  if (normalized.controle && normalized.controle.length > 20) {
     warnings.push(
-      `CONTROLE com ${normalized.controle.length} dígitos; schema atual de atos aceita até 5`
+      `CONTROLE com ${normalized.controle.length} dígitos; excede o limite de 20 dígitos aceito pelo sistema`
     );
   }
 

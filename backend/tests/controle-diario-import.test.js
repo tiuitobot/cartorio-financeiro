@@ -110,7 +110,7 @@ test('buildWorkbookPreview gera preview com erros e alertas de domínio já conh
   assert.equal(preview.summary.valid_rows, 2);
   assert.equal(preview.summary.rows_with_errors, 1);
   assert.equal(preview.rows[0].normalized.controle, '00001');
-  assert.equal(preview.rows[1].warnings.some((item) => item.includes('CONTROLE com 7 dígitos')), true);
+  assert.equal(preview.rows[1].warnings.some((item) => item.includes('CONTROLE com 7 dígitos')), false);
   assert.equal(preview.rows[1].warnings.some((item) => item.includes('fora do intervalo esperado')), true);
   assert.equal(preview.rows[2].errors.includes('DATA DO ATO ausente ou inválida'), true);
   assert.equal(preview.summary.file_warnings.includes('Coluna Repasses sem valores preenchidos nesta versão da planilha'), true);

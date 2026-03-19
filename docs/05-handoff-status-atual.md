@@ -67,6 +67,8 @@ Foram feitos os seguintes ajustes:
 - importacao inicial do controle diario para `atos`, usando `ESCREVENTE` como `captador_id`
 - tela frontend de `Importações` com upload, preview, listagem de lotes e importacao definitiva
 - E2E reproduzivel do fluxo de importacao com Playwright
+- projeto Railway separado para homologacao publica
+- gerador de lote `.xlsx` controlado para homologacao
 
 ## O que esta pronto
 
@@ -92,12 +94,15 @@ Foram feitos os seguintes ajustes:
 - endpoint de importacao definitiva em `POST /api/importacoes/:id/importar`
 - tela `Importações` no frontend conectada a `GET/POST /api/importacoes`
 - teste E2E cobrindo upload, preview e importacao
+- documentacao do ambiente Railway de homologacao
+- script para gerar lote `.xlsx` de homologacao sem depender da planilha real
 
 ### Pronto em nivel de conceito
 
 - estrategia Railway agora
 - estrategia Google Cloud depois
 - criterio de portabilidade da aplicacao
+- separacao entre Railway de producao e Railway de homologacao
 
 ## O que ainda nao foi feito
 
@@ -105,7 +110,6 @@ Foram feitos os seguintes ajustes:
 
 - build do container
 - subida com `docker compose`
-- deploy no Railway
 - deploy no GCP
 
 ### Nao implementado
@@ -115,6 +119,7 @@ Foram feitos os seguintes ajustes:
 - endurecimento do modelo de auditoria
 - execucao ponta a ponta com banco real neste ambiente
 - definicao final de `executor_id` e `signatario_id` na importacao da planilha
+- lote real de homologacao com nomes reais do cartorio
 
 ## Pendencias prioritarias
 
