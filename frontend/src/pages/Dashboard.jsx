@@ -30,6 +30,7 @@ export default function Dashboard({ atos, escreventes }) {
     { l: 'Total Repasses + ISSQN',  v: fmt(totalRepassesISSQN), i: '🔁', c: '#d97706', bg: '#fffbeb' },
   ];
   const porStatus = ['pago', 'pendente', 'pago_menor', 'pago_maior'].map(s => ({ l: sLabel(s), n: atos.filter(a => a.status === s).length, c: sColor(s) }));
+  const maiorStatus = Math.max(...porStatus.map((item) => item.n), 1);
   const topCapt   = escreventes.map(e => ({ nome: e.nome, total: atos.filter(a => a.captador_id === e.id).reduce((s, a) => s + a.emolumentos, 0), qtd: atos.filter(a => a.captador_id === e.id).length })).sort((a, b) => b.total - a.total).slice(0, 5);
 
   return (
@@ -65,8 +66,10 @@ export default function Dashboard({ atos, escreventes }) {
           {porStatus.map((s, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 12, height: 12, borderRadius: '50%', background: s.c }} /><span style={{ fontSize: 14 }}>{s.l}</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ height: 8, width: Math.max(8, s.n * 40), background: s.c, borderRadius: 4, opacity: 0.7 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 180, justifyContent: 'flex-end' }}>
+                <div style={{ width: 140, height: 8, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${s.n > 0 ? Math.max(6, (s.n / maiorStatus) * 100) : 0}%`, background: s.c, borderRadius: 999, opacity: 0.8 }} />
+                </div>
                 <span style={{ fontWeight: 700, color: s.c, minWidth: 24, textAlign: 'right' }}>{s.n}</span>
               </div>
             </div>
