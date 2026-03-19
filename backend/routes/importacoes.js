@@ -117,7 +117,36 @@ async function buildCaptadorMap(client) {
   return { byKey, ambiguous };
 }
 
-async function importLote(loteId, actorUserId) {
+function parseImportOptions(body = {}) {
+  const autoCreateMissingEscreventes =
+    body.auto_criar_escreventes === true || body.autoCreateMissingEscreventes === true;
+
+  const defaultTaxa = Number.parseInt(
+    body.taxa_padrao_novos_escreventes ?? body.defaultTaxa ?? 20,
+    10
+  );
+
+  if (![6, 20, 30].includes(defaultTaxa)) {
+    return { invalid: true };
+  }
+
+  return {
+    autoCreateMissingEscreventes,
+    defaultTaxa,
+  };
+}
+
+async function createEscreventeForImport(client, nome, taxa) {
+  const { rows } = await client.query(
+    `INSERT INTO escreventes(nome, cargo, email, taxa, ativo)
+     VALUES($1,$2,$3,$4,true)
+     RETURNING id, nome, taxa, ativo`,
+    [nome, null, null, taxa]
+  );
+  return rows[0];
+}
+
+async function importLote(loteId, actorUserId, options = {}) {
   const client = await db.connect();
 
   try {
@@ -148,6 +177,7 @@ async function importLote(loteId, actorUserId) {
       imported: 0,
       skipped: 0,
       imported_ids: [],
+      created_escreventes: [],
       errors: [],
       assumptions: [
         'ESCREVENTE da planilha foi importado como captador_id',
@@ -155,6 +185,13 @@ async function importLote(loteId, actorUserId) {
         'valor_pago foi inferido como total do ato apenas quando a planilha trouxe Data Pagamento ou Confirmacao Recebimento',
       ],
     };
+    const createdByKey = new Map();
+
+    if (options.autoCreateMissingEscreventes) {
+      result.assumptions.push(
+        `escreventes faltantes foram criados automaticamente com taxa padrão de ${options.defaultTaxa}%`
+      );
+    }
 
     for (const row of linhasResult.rows) {
       const normalized = row.normalized_data || {};
@@ -189,7 +226,7 @@ async function importLote(loteId, actorUserId) {
       }
 
       const captador = captadoresByKey.get(captadorKey);
-      if (!captador) {
+      if (!captador && !options.autoCreateMissingEscreventes) {
         result.skipped += 1;
         result.errors.push({
           numero_linha: row.numero_linha,
@@ -198,14 +235,36 @@ async function importLote(loteId, actorUserId) {
         continue;
       }
 
+      let captadorResolvido = captador;
+      if (!captadorResolvido && options.autoCreateMissingEscreventes) {
+        const created = await createEscreventeForImport(
+          client,
+          normalized.escrevente_nome,
+          options.defaultTaxa
+        );
+        captadoresByKey.set(captadorKey, created);
+        createdByKey.set(captadorKey, created);
+        result.created_escreventes.push({
+          id: created.id,
+          nome: created.nome,
+          taxa: created.taxa,
+        });
+        captadorResolvido = created;
+      }
+
       const repasses = normalized.repasses ?? 0;
       const issqn = normalized.issqn ?? 0;
       const valorPago = inferValorPago(normalized);
       const status = calcStatus(normalized.emolumentos, repasses, issqn, 0, 0, valorPago);
       const notasImportacao = [
         `Importado da planilha controle diário (lote ${loteId}, linha ${row.numero_linha})`,
-        `Captador mapeado de ESCREVENTE: ${captador.nome}`,
+        `Captador mapeado de ESCREVENTE: ${captadorResolvido.nome}`,
       ];
+      if (createdByKey.has(captadorKey)) {
+        notasImportacao.push(
+          `escrevente criado automaticamente na importação com taxa ${captadorResolvido.taxa}%`
+        );
+      }
       if (normalized.data_pagamento || normalized.confirmacao_recebimento_em) {
         notasImportacao.push('valor_pago inferido automaticamente a partir do sinal de quitação na planilha');
       }
@@ -235,7 +294,7 @@ async function importLote(loteId, actorUserId) {
             normalized.pagina,
             normalized.data_ato,
             normalized.tipo_ato,
-            captador.id,
+            captadorResolvido.id,
             null,
             null,
             normalized.emolumentos,
@@ -289,6 +348,7 @@ async function importLote(loteId, actorUserId) {
         imported: result.imported,
         skipped: result.skipped,
         imported_ids: result.imported_ids,
+        created_escreventes: result.created_escreventes,
         errors: result.errors,
         assumptions: result.assumptions,
         imported_by_user_id: actorUserId,
@@ -388,13 +448,17 @@ router.post(
   requirePerfil('admin', 'financeiro', 'chefe_financeiro'),
   async (req, res) => {
     const loteId = Number.parseInt(req.params.id, 10);
+    const importOptions = parseImportOptions(req.body || {});
 
     if (!Number.isInteger(loteId)) {
       return res.status(400).json({ erro: 'Lote inválido' });
     }
+    if (importOptions.invalid) {
+      return res.status(400).json({ erro: 'Taxa padrão inválida. Use 6, 20 ou 30.' });
+    }
 
     try {
-      const result = await importLote(loteId, req.user.id);
+      const result = await importLote(loteId, req.user.id, importOptions);
       if (result.notFound) {
         return res.status(404).json({ erro: 'Lote não encontrado' });
       }

@@ -69,6 +69,7 @@ Foram feitos os seguintes ajustes:
 - E2E reproduzivel do fluxo de importacao com Playwright
 - projeto Railway separado para homologacao publica
 - gerador de lote `.xlsx` controlado para homologacao
+- bootstrap de sistema vazio via UI, com criacao automatica de escreventes faltantes
 
 ## O que esta pronto
 
@@ -96,6 +97,7 @@ Foram feitos os seguintes ajustes:
 - teste E2E cobrindo upload, preview e importacao
 - documentacao do ambiente Railway de homologacao
 - script para gerar lote `.xlsx` de homologacao sem depender da planilha real
+- importacao opcional com criacao automatica de escreventes e taxa padrao configuravel
 
 ### Pronto em nivel de conceito
 

@@ -31,8 +31,8 @@ function createWorkbookFixture(filePath) {
 
   const rows = [
     headers,
-    ['18/03/2026', 'PROCURAÇÃO', '520', '1', '990001', 'Maria Santos', '850,00', '', '', '19/03/2026', '19/03/2026', 'Pix', 'CHK-001'],
-    ['18/03/2026', '', '520', '2', '990002', 'Maria Santos', '1200,00', '', '', '', '', 'Dinheiro', ''],
+    ['18/03/2026', 'PROCURAÇÃO', '520', '1', '990001', 'Escrevente Bootstrap', '850,00', '', '', '19/03/2026', '19/03/2026', 'Pix', 'CHK-001'],
+    ['18/03/2026', '', '520', '2', '990002', 'Escrevente Bootstrap', '1200,00', '', '', '', '', 'Dinheiro', ''],
   ];
 
   const workbook = XLSX.utils.book_new();
@@ -57,12 +57,14 @@ test.describe('importações e2e', () => {
     await expect(page.getByText(/Preview gerado para/)).toBeVisible();
     await expect(page.getByText(/Erro: ATO ausente/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Importar Lote' })).toBeEnabled();
+    await expect(page.getByText(/Criar escreventes faltantes automaticamente/)).toBeVisible();
 
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Importar Lote' }).click();
 
     await expect(page.getByText('Resultado da importação')).toBeVisible();
     await expect(page.getByText(/Importação concluída: 1 linhas importadas e 1 puladas\./)).toBeVisible();
+    await expect(page.getByText(/Escrevente Bootstrap \(20%\)/)).toBeVisible();
 
     await page.getByRole('button', { name: /Livros de Notas/ }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();

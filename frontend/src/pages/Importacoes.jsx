@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { Badge, Btn, Card, ST } from '../components/ui/index.jsx';
+import { Badge, Btn, Card, FSel, ST } from '../components/ui/index.jsx';
 import { fmt, fmtDate, padControle } from '../utils/format.js';
 
 const STATUS_META = {
@@ -46,6 +46,8 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
   const [lotes, setLotes] = useState([]);
   const [selectedLoteId, setSelectedLoteId] = useState(null);
   const [loteDetalhe, setLoteDetalhe] = useState(null);
+  const [autoCriarEscreventes, setAutoCriarEscreventes] = useState(true);
+  const [taxaNovosEscreventes, setTaxaNovosEscreventes] = useState('20');
 
   const mockAtivo = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -150,7 +152,10 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
     setImportando(true);
     setMensagem('');
     try {
-      const result = await api.importarLote(selectedLote.id);
+      const result = await api.importarLote(selectedLote.id, {
+        auto_criar_escreventes: autoCriarEscreventes,
+        taxa_padrao_novos_escreventes: Number.parseInt(taxaNovosEscreventes, 10),
+      });
       setMensagem(`Importação concluída: ${result.imported} linhas importadas e ${result.skipped} puladas.`);
       await Promise.all([
         loadLotes(selectedLote.id),
@@ -209,6 +214,35 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
             Arquivo selecionado: {arquivo.name}
           </div>
         )}
+        <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, alignItems: 'end' }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={autoCriarEscreventes}
+              onChange={(event) => setAutoCriarEscreventes(event.target.checked)}
+              style={{ marginTop: 2 }}
+            />
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>
+                Criar escreventes faltantes automaticamente
+              </span>
+              <span style={{ color: '#64748b', fontSize: 12 }}>
+                Use isto para carga inicial em sistema vazio. Os escreventes novos entram ativos, sem e-mail e sem cargo.
+              </span>
+            </span>
+          </label>
+          <FSel
+            label="Taxa padrão dos novos escreventes"
+            value={taxaNovosEscreventes}
+            onChange={(event) => setTaxaNovosEscreventes(event.target.value)}
+            disabled={!autoCriarEscreventes}
+            options={[
+              { value: '6', label: '6%' },
+              { value: '20', label: '20%' },
+              { value: '30', label: '30%' },
+            ]}
+          />
+        </div>
         {mensagem && (
           <div style={{ marginTop: 14, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', borderRadius: 10, padding: '12px 14px', fontSize: 13, fontWeight: 600 }}>
             {mensagem}
@@ -326,6 +360,18 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
                     <div><strong>Puladas:</strong> {importResult.skipped}</div>
                     <div><strong>Quando:</strong> {fmtDate(String(importResult.imported_at || '').slice(0, 10))}</div>
                   </div>
+                  {Array.isArray(importResult.created_escreventes) && importResult.created_escreventes.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <strong>Escreventes criados automaticamente:</strong>
+                      <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                        {importResult.created_escreventes.map((item) => (
+                          <li key={`${item.id}-${item.nome}`}>
+                            {item.nome} ({item.taxa}%)
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {Array.isArray(importResult.assumptions) && importResult.assumptions.length > 0 && (
                     <div style={{ marginTop: 10 }}>
                       <strong>Premissas:</strong>

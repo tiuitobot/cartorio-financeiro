@@ -74,7 +74,7 @@ const apiReal = {
     formData.append('arquivo', arquivo);
     return reqForm('POST', '/importacoes/planilha/preview', formData);
   },
-  importarLote:        (id)            => req('POST', `/importacoes/${id}/importar`, {}),
+  importarLote:        (id, data={})   => req('POST', `/importacoes/${id}/importar`, data),
 
   // Usuários (admin)
   getUsuarios:   ()             => req('GET',  '/usuarios'),

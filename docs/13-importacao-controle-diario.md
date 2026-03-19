@@ -123,11 +123,24 @@ Regras da rodada atual:
 - `executor_id` e `signatario_id` ficam `NULL`
 - linhas com erro de parse continuam bloqueadas
 - linhas com conflito de unicidade ou escrevente nao cadastrado sao rejeitadas
+- opcionalmente, a importacao pode **criar escreventes faltantes automaticamente** com taxa padrao configurada pela UI
 
 Assuncoes atuais:
 
 - se a planilha trouxer `Data Pagamento` ou `Confirmacao Recebimento`, o sistema infere `valor_pago = total do ato`
 - se nao houver sinal de quitacao, `valor_pago = 0`
+
+### Bootstrap de sistema vazio
+
+Agora existe um modo de carga inicial pela propria UI:
+
+- o usuario faz upload da planilha
+- gera o preview
+- marca `Criar escreventes faltantes automaticamente`
+- escolhe a taxa padrao (`6%`, `20%` ou `30%`)
+- importa o lote
+
+Com isso, o sistema consegue sair de base vazia para base populada sem cadastro previo de escreventes.
 
 ## Leitura da versao atual da planilha
 
