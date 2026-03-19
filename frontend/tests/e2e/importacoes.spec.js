@@ -58,6 +58,10 @@ test.describe('importações e2e', () => {
     await expect(page.getByText(/Lote #\d+ cancelado\./)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Excluir Lote' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Importar Lote' })).toHaveCount(0);
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Excluir Lote' }).click();
+    await expect(page.getByText(/Lote #\d+ excluído\./)).toBeVisible();
   });
 
   test('admin importa e depois exclui um lote com rollback dos atos', async ({ page }, testInfo) => {

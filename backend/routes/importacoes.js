@@ -150,7 +150,7 @@ async function findEscreventeBlockingRefs(client, escreventeId) {
 }
 
 async function deleteImportedEscreventesIfOrphan(client, importResult) {
-  const ids = extractCreatedEscreventeIds(importResult);
+  const ids = extractCreatedEscreventeIds(importResult || {});
   const deleted = [];
   const skipped = [];
 
