@@ -21,6 +21,8 @@ import ModalTrocarSenha          from './components/modals/ModalTrocarSenha.jsx'
 export default function App() {
   const [user, setUser]                           = useState(null);
   const [loadingApp, setLoadingApp]               = useState(true);
+  const [loadingDados, setLoadingDados]           = useState(false);
+  const [dadosInicializados, setDadosInicializados] = useState(false);
   const [atos, setAtos]                           = useState([]);
   const [escreventes, setEscreventes]             = useState([]);
   const [pagamentosReembolso, setPagamentosReembolso] = useState([]);
@@ -78,6 +80,7 @@ export default function App() {
   // ── Carregar dados ───────────────────────────────────────────────────────────
   const carregarDados = useCallback(async () => {
     if (!user) return;
+    setLoadingDados(true);
     try {
       const [atosData, escsData, rembs, reivs] = await Promise.all([
         api.getAtos(),
@@ -91,16 +94,23 @@ export default function App() {
       setReivindicacoes(reivs);
     } catch (e) {
       setErro('Erro ao carregar dados: ' + e.message);
+    } finally {
+      setLoadingDados(false);
+      setDadosInicializados(true);
     }
   }, [user, normalizeAto, normalizeReembolso]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-  const handleLogin  = (userData) => setUser(userData);
+  const handleLogin  = (userData) => {
+    setDadosInicializados(false);
+    setUser(userData);
+  };
   const handleLogout = () => {
     localStorage.removeItem('cartorio_token');
-    setUser(null); setAtos([]); setEscreventes([]);
+    setUser(null); setAtos([]); setEscreventes([]); setPagamentosReembolso([]); setReivindicacoes([]);
+    setDadosInicializados(false); setLoadingDados(false);
   };
 
   const handleRefresh = async () => {
@@ -268,53 +278,61 @@ export default function App() {
           </div>
         </div>
 
-        {view === 'dashboard'  && <Dashboard atos={atos} escreventes={escreventes} />}
+        {!dadosInicializados ? (
+          <div style={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 15, fontWeight: 600 }}>
+            Carregando dados...
+          </div>
+        ) : (
+          <>
+            {view === 'dashboard'  && <Dashboard atos={atos} escreventes={escreventes} />}
 
-        {view === 'atos' && (
-          <Atos
-            atos={atosFiltrados}
-            escreventes={escreventes}
-            reivindicacoes={reivindicacoes}
-            userRole={userRole}
-            userId={userId}
-            onOpenAto={a => setModalAto(a)}
-            onDeclaro={() => setModalDeclaro(true)}
-            onRespostaCaptador={r => setModalRespostaCaptador(r)}
-            onContestar={handleContestarRecusa}
-            onDecisaoFinanceiro={handleDecisaoFinanceiro}
-            busca={busca}
-            onBusca={setBusca}
-          />
+            {view === 'atos' && (
+              <Atos
+                atos={atosFiltrados}
+                escreventes={escreventes}
+                reivindicacoes={reivindicacoes}
+                userRole={userRole}
+                userId={userId}
+                onOpenAto={a => setModalAto(a)}
+                onDeclaro={() => setModalDeclaro(true)}
+                onRespostaCaptador={r => setModalRespostaCaptador(r)}
+                onContestar={handleContestarRecusa}
+                onDecisaoFinanceiro={handleDecisaoFinanceiro}
+                busca={busca}
+                onBusca={setBusca}
+              />
+            )}
+
+            {view === 'importacoes' && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && (
+              <Importacoes
+                refreshKey={importacoesRefreshKey}
+                onImportSuccess={carregarDados}
+                onErro={setErro}
+              />
+            )}
+
+            {view === 'relatorios' && (
+              <Relatorios
+                atos={atos}
+                escreventes={escreventes}
+                pagamentosReembolso={pagamentosReembolso}
+                onAddPagamento={async p => { try { const novo = normalizeReembolso(await api.criarReembolso(p)); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
+                onConfirmarReembolso={async id => { try { const atualizado = normalizeReembolso(await api.confirmarReembolso(id)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
+              />
+            )}
+
+            {view === 'escreventes' && (
+              <Escreventes
+                escreventes={escreventes}
+                atos={atos}
+                userRole={userRole}
+                onEditar={e => setModalEscrevente(e)}
+              />
+            )}
+
+            {view === 'usuarios' && userRole === 'admin' && <PainelUsuarios escreventes={escreventes} />}
+          </>
         )}
-
-        {view === 'importacoes' && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && (
-          <Importacoes
-            refreshKey={importacoesRefreshKey}
-            onImportSuccess={carregarDados}
-            onErro={setErro}
-          />
-        )}
-
-        {view === 'relatorios' && (
-          <Relatorios
-            atos={atos}
-            escreventes={escreventes}
-            pagamentosReembolso={pagamentosReembolso}
-            onAddPagamento={async p => { try { const novo = normalizeReembolso(await api.criarReembolso(p)); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
-            onConfirmarReembolso={async id => { try { const atualizado = normalizeReembolso(await api.confirmarReembolso(id)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
-          />
-        )}
-
-        {view === 'escreventes' && (
-          <Escreventes
-            escreventes={escreventes}
-            atos={atos}
-            userRole={userRole}
-            onEditar={e => setModalEscrevente(e)}
-          />
-        )}
-
-        {view === 'usuarios' && userRole === 'admin' && <PainelUsuarios escreventes={escreventes} />}
       </div>
 
       {/* Modais */}
