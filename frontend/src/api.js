@@ -60,6 +60,7 @@ const apiReal = {
   getReembolsos:         ()     => req('GET',  '/reembolsos'),
   criarReembolso:        (data) => req('POST', '/reembolsos', data),
   confirmarReembolso:    (id)   => req('PUT',  `/reembolsos/${id}/confirmar`, {}),
+  contestarReembolso:    (id, justificativa) => req('PUT', `/reembolsos/${id}/contestar`, { justificativa }),
 
   // Reivindicações
   getReivindicacoes:    ()              => req('GET',  '/reivindicacoes'),

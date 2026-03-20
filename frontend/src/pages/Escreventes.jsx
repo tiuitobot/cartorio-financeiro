@@ -1,10 +1,11 @@
-import { Card, Btn, Badge } from '../components/ui/index.jsx';
+import { Card, Btn, Badge, StickyXScroll } from '../components/ui/index.jsx';
 import { fmt } from '../utils/format.js';
 
 export default function Escreventes({ escreventes, atos, userRole, onEditar }) {
   return (
     <Card style={{ padding: 0, overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+      <StickyXScroll>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 880 }}>
         <thead>
           <tr style={{ background: '#f1f5f9' }}>
             {['Nome', 'Cargo', 'Taxa', 'Atos captados', 'Emolumentos captados', 'Compartilha com', ''].map(h => (
@@ -35,6 +36,7 @@ export default function Escreventes({ escreventes, atos, userRole, onEditar }) {
           })}
         </tbody>
       </table>
+      </StickyXScroll>
     </Card>
   );
 }

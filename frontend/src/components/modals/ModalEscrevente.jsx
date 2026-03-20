@@ -47,7 +47,7 @@ export default function ModalEscrevente({ init, onClose, onSave, todosEscrevente
               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>Os escreventes selecionados poderão visualizar seus atos.</div>
             </div>
           )}
-          {!!init.id && <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#92400e' }}>⚠️ Alterações na taxa afetam apenas atos <strong>futuros</strong>.</div>}
+          {!!init.id && <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#92400e' }}>⚠️ A vigência histórica de taxa ainda não está implementada. Revise relatórios de comissão após qualquer alteração.</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Btn variant="secondary" onClick={onClose}>Cancelar</Btn>
             <Btn onClick={() => { if (form.nome?.trim()) onSave(form); }}>💾 Salvar</Btn>

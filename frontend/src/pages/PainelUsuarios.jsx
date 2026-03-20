@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Btn, FInput, FSel, Badge } from '../components/ui/index.jsx';
+import { Card, Btn, FInput, FSel, Badge, StickyXScroll } from '../components/ui/index.jsx';
 import { api } from '../api.js';
 
 const PERFIS = [
@@ -39,7 +39,8 @@ export default function PainelUsuarios({ escreventes }) {
         <Btn onClick={() => { setForm({ perfil: 'financeiro', ativo: true }); setModal('novo'); }}>＋ Novo Usuário</Btn>
       </div>
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <StickyXScroll>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 860 }}>
           <thead>
             <tr style={{ background: '#f1f5f9' }}>
               {['Nome', 'E-mail', 'Perfil', 'Escrevente vinculado', 'Ativo', ''].map(h => (
@@ -65,6 +66,7 @@ export default function PainelUsuarios({ escreventes }) {
             })}
           </tbody>
         </table>
+        </StickyXScroll>
       </Card>
 
       {modal && (

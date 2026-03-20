@@ -2,12 +2,18 @@ import { useState } from 'react';
 import { FInput, FSel, Btn, ST, CurrencyInput } from '../ui/index.jsx';
 import { Badge } from '../ui/index.jsx';
 import { padControle, fmtLivro, fmtPagina, fmtRef, fmt, fmtDate } from '../../utils/format.js';
-import { FORMAS_PAGAMENTO } from '../../constants.js';
+import { FORMAS_PAGAMENTO, normalizeFormaPagamento } from '../../constants.js';
 import ModalAjusteComissao from './ModalAjusteComissao.jsx';
 
 export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, userId }) {
-  const [form, setForm] = useState(ato ? { ...ato } : {
+  const [form, setForm] = useState(ato ? {
+    ...ato,
+    data_ato: ato.data_ato?.slice(0, 10) || '',
+    data_pagamento: ato.data_pagamento?.slice(0, 10) || '',
+    forma_pagamento: normalizeFormaPagamento(ato.forma_pagamento),
+  } : {
     controle: '', livro: '', pagina: '', captador_id: null, executor_id: null, signatario_id: null,
+    nome_tomador: '',
     emolumentos: 0, repasses: 0, issqn: 0, reembolso_tabeliao: 0, reembolso_escrevente: 0, escrevente_reembolso_id: null,
     data_ato: '', valor_pago: 0, data_pagamento: '', forma_pagamento: '', status: 'pendente',
     verificado_por: null, verificado_em: null, correcoes: [], notas: '', comissao_override: null,
@@ -76,6 +82,7 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
             </div>
             <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1 }}><FInput label="Data do Ato" type="date" value={form.data_ato} onChange={e => set('data_ato', e.target.value)} disabled={!podeEditar} /></div>
+              <div style={{ flex: 1 }}><FInput label="Nome do Tomador / Cliente" value={form.nome_tomador || ''} onChange={e => set('nome_tomador', e.target.value)} disabled={!podeEditar} placeholder="Nome completo" /></div>
               {form.livro && form.pagina && <div style={{ background: '#eff6ff', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: '#1e40af', marginTop: 20 }}>Ref: {fmtRef(form.livro, form.pagina)}</div>}
             </div>
           </div>
@@ -132,7 +139,7 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 </div>
               )}
             </div>
-            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: form.verificado_por ? '#f0fdf4' : '#f8fafc', border: `1px solid ${form.verificado_por ? '#86efac' : '#e2e8f0'}` }}>
+            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: form.verificado_por ? '#f0fdf4' : '#fef2f2', border: `1px solid ${form.verificado_por ? '#86efac' : '#fecaca'}` }}>
               {form.verificado_por ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 20 }}>✅</span>
@@ -141,7 +148,7 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#64748b' }}>Recebimento ainda não confirmado</span>
+                  <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 700 }}>Recebimento ainda não confirmado</span>
                   {podeEditar && <Btn variant="success" onClick={confirmarRecebimento} style={{ padding: '6px 14px', fontSize: 13 }}>✅ Confirmar Recebimento</Btn>}
                 </div>
               )}

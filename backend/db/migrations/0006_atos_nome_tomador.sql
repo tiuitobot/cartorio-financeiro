@@ -1,0 +1,2 @@
+ALTER TABLE atos
+  ADD COLUMN IF NOT EXISTS nome_tomador VARCHAR(255);

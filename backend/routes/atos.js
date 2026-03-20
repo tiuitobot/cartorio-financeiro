@@ -25,6 +25,37 @@ function toOptionalInt(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeFormaPagamento(value) {
+  const text = normalizeNullableString(value);
+  if (!text) return null;
+
+  const key = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+
+  const mapping = {
+    PIX: 'Pix',
+    TED: 'TED',
+    BOLETO: 'Boleto',
+    VALE: 'Vale',
+    DINHEIRO: 'Dinheiro',
+    CHEQUE: 'Cheque',
+    TRANSFERENCIA: 'TED',
+    'DEPOSITO/TRANSFERENCIA': 'TED',
+    'DEPOSITO / TRANSFERENCIA': 'TED',
+    'DEPOSITO TRANSFERENCIA': 'TED',
+    'CARTAO DE DEBITO': 'Cartão Débito',
+    'CARTAO DE CREDITO': 'Cartão Crédito',
+    'CARTAO DEBITO': 'Cartão Débito',
+    'CARTAO CREDITO': 'Cartão Crédito',
+  };
+
+  return mapping[key] || text;
+}
+
 function normalizeAtoPayload(payload, previousAto = null) {
   const emolumentos = toMoney(payload.emolumentos);
   const repasses = toMoney(payload.repasses);
@@ -40,6 +71,7 @@ function normalizeAtoPayload(payload, previousAto = null) {
     pagina: String(Number.parseInt(payload.pagina, 10) || 0),
     data_ato: normalizeNullableString(payload.data_ato),
     tipo_ato: normalizeNullableString(payload.tipo_ato),
+    nome_tomador: normalizeNullableString(payload.nome_tomador),
     captador_id: toOptionalInt(payload.captador_id),
     executor_id: toOptionalInt(payload.executor_id),
     signatario_id: toOptionalInt(payload.signatario_id),
@@ -51,7 +83,7 @@ function normalizeAtoPayload(payload, previousAto = null) {
     escrevente_reembolso_id: reembolsoEscrevente > 0 ? toOptionalInt(payload.escrevente_reembolso_id) : null,
     valor_pago: valorPago,
     data_pagamento: normalizeNullableString(payload.data_pagamento),
-    forma_pagamento: normalizeNullableString(payload.forma_pagamento),
+    forma_pagamento: normalizeFormaPagamento(payload.forma_pagamento),
     controle_cheques: normalizeNullableString(payload.controle_cheques),
     status: calcStatus(
       emolumentos,
@@ -153,7 +185,7 @@ async function fetchAtoById(id) {
 // ── GET /api/atos ─────────────────────────────────────────────────────────────
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { status, captador_id, inicio, fim, busca, livro, pagina } = req.query;
+    const { status, captador_id, inicio, fim, busca, livro, pagina, envolvido_id } = req.query;
     let where = ['1=1'];
     let params = [];
     let i = 1;
@@ -168,6 +200,12 @@ router.get('/', authMiddleware, async (req, res) => {
     }
     if (livro) { where.push(`a.livro=$${i++}`); params.push(String(parseInt(livro))); }
     if (pagina) { where.push(`a.pagina=$${i++}`); params.push(String(parseInt(pagina))); }
+    if (envolvido_id) {
+      const envolvidoId = parseInt(envolvido_id, 10);
+      where.push(`(a.captador_id=$${i} OR a.executor_id=$${i} OR a.signatario_id=$${i})`);
+      params.push(envolvidoId);
+      i += 1;
+    }
 
     // Filtro de visibilidade para escreventes
     if (req.user.perfil === 'escrevente' && req.user.escrevente_id) {
@@ -199,7 +237,11 @@ router.get('/', authMiddleware, async (req, res) => {
       LEFT JOIN correcoes c ON c.ato_id = a.id
       WHERE ${where.join(' AND ')}
       GROUP BY a.id, cap.nome, cap.taxa, exe.nome, exe.taxa, sig.nome, sig.taxa, re.nome
-      ORDER BY a.data_ato DESC NULLS LAST, a.controle DESC
+      ORDER BY
+        a.data_ato DESC NULLS LAST,
+        a.livro::int DESC,
+        a.pagina::int DESC,
+        a.id DESC
     `;
     const { rows } = await db.query(sql, params);
     res.json(mapAtoRows(rows));
@@ -216,14 +258,14 @@ router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_finan
 
   try {
     const { rows } = await db.query(`
-      INSERT INTO atos(controle,livro,pagina,data_ato,tipo_ato,captador_id,executor_id,signatario_id,
+      INSERT INTO atos(controle,livro,pagina,data_ato,tipo_ato,nome_tomador,captador_id,executor_id,signatario_id,
         emolumentos,repasses,issqn,reembolso_tabeliao,reembolso_escrevente,escrevente_reembolso_id,
         valor_pago,data_pagamento,forma_pagamento,controle_cheques,status,verificado_por,verificado_em,
         comissao_override,notas)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
       RETURNING *`,
       [atoPayload.controle, atoPayload.livro, atoPayload.pagina,
-       atoPayload.data_ato, atoPayload.tipo_ato, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
+       atoPayload.data_ato, atoPayload.tipo_ato, atoPayload.nome_tomador, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
        atoPayload.emolumentos, atoPayload.repasses, atoPayload.issqn, atoPayload.reembolso_tabeliao, atoPayload.reembolso_escrevente,
        atoPayload.escrevente_reembolso_id, atoPayload.valor_pago, atoPayload.data_pagamento, atoPayload.forma_pagamento,
        atoPayload.controle_cheques, atoPayload.status, atoPayload.verificado_por, atoPayload.verificado_em,
@@ -263,13 +305,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     await client.query(`
       UPDATE atos SET
-        controle=$1,livro=$2,pagina=$3,data_ato=$4,tipo_ato=$5,captador_id=$6,executor_id=$7,signatario_id=$8,
-        emolumentos=$9,repasses=$10,issqn=$11,reembolso_tabeliao=$12,reembolso_escrevente=$13,
-        escrevente_reembolso_id=$14,valor_pago=$15,data_pagamento=$16,forma_pagamento=$17,controle_cheques=$18,
-        status=$19,verificado_por=$20,verificado_em=$21,comissao_override=$22,notas=$23
-      WHERE id=$24`,
+        controle=$1,livro=$2,pagina=$3,data_ato=$4,tipo_ato=$5,nome_tomador=$6,captador_id=$7,executor_id=$8,signatario_id=$9,
+        emolumentos=$10,repasses=$11,issqn=$12,reembolso_tabeliao=$13,reembolso_escrevente=$14,
+        escrevente_reembolso_id=$15,valor_pago=$16,data_pagamento=$17,forma_pagamento=$18,controle_cheques=$19,
+        status=$20,verificado_por=$21,verificado_em=$22,comissao_override=$23,notas=$24
+      WHERE id=$25`,
       [atoPayload.controle, atoPayload.livro, atoPayload.pagina,
-       atoPayload.data_ato, atoPayload.tipo_ato, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
+       atoPayload.data_ato, atoPayload.tipo_ato, atoPayload.nome_tomador, atoPayload.captador_id, atoPayload.executor_id, atoPayload.signatario_id,
        atoPayload.emolumentos, atoPayload.repasses, atoPayload.issqn, atoPayload.reembolso_tabeliao, atoPayload.reembolso_escrevente,
        atoPayload.escrevente_reembolso_id, atoPayload.valor_pago, atoPayload.data_pagamento, atoPayload.forma_pagamento,
        atoPayload.controle_cheques, atoPayload.status, atoPayload.verificado_por, atoPayload.verificado_em,

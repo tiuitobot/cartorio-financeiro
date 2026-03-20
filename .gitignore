@@ -17,6 +17,9 @@ cartorio server.zip
 Controle_Diario_2026_padronizado.xlsx
 Controle_Diario_2026_padronizado.xlsx:Zone.Identifier
 *.Zone.Identifier
+*:Zone.Identifier
+26.03.20 Especificacao_Gestor_Notarial_v2.docx
+26.03.20 Especificacao_Gestor_Notarial_v2.docx:Zone.Identifier
 playwright-report/
 test-results/
 frontend/test-results/

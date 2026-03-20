@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { Badge, Btn, Card, FSel, ST } from '../components/ui/index.jsx';
+import { Badge, Btn, Card, FSel, ST, StickyXScroll } from '../components/ui/index.jsx';
 import { fmt, fmtDate, padControle } from '../utils/format.js';
 
 const STATUS_META = {
@@ -588,7 +588,7 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
                 <div style={{ color: '#64748b', fontSize: 12, marginBottom: 10 }}>
                   Exibindo {previewRows.length} linha(s) persistidas em staging. Os dados só entram em <code>atos</code> após clicar em importar.
                 </div>
-                <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                <StickyXScroll style={{ border: '1px solid #e2e8f0', borderRadius: 12 }}>
                   <table style={{ width: '100%', minWidth: 960, borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
@@ -638,7 +638,7 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
                       })}
                     </tbody>
                   </table>
-                </div>
+                </StickyXScroll>
                 {previewRows.length === 0 && !loadingDetalhe && (
                   <div style={{ paddingTop: 14, color: '#94a3b8', fontSize: 13 }}>Nenhuma linha disponível para este lote.</div>
                 )}

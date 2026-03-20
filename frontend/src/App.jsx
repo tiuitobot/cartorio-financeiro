@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { api } from './api.js';
 import { parseRef, padControle, toMoneyNumber } from './utils/format.js';
+import { normalizeFormaPagamento } from './constants.js';
 
 // Pages
 import TelaLogin      from './pages/TelaLogin.jsx';
@@ -17,6 +18,30 @@ import ModalEscrevente           from './components/modals/ModalEscrevente.jsx';
 import ModalDeclaroParticipacao  from './components/modals/ModalDeclaroParticipacao.jsx';
 import ModalRespostaCaptador     from './components/modals/ModalRespostaCaptador.jsx';
 import ModalTrocarSenha          from './components/modals/ModalTrocarSenha.jsx';
+
+function sortEscreventesByNome(items = []) {
+  return [...items].sort((a, b) =>
+    String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR', { sensitivity: 'base' })
+  );
+}
+
+function sortAtos(items = []) {
+  return [...items].sort((a, b) => {
+    const dataA = a?.data_ato || '';
+    const dataB = b?.data_ato || '';
+    if (dataA !== dataB) return dataB.localeCompare(dataA);
+
+    const livroA = Number.parseInt(a?.livro || 0, 10) || 0;
+    const livroB = Number.parseInt(b?.livro || 0, 10) || 0;
+    if (livroA !== livroB) return livroB - livroA;
+
+    const paginaA = Number.parseInt(a?.pagina || 0, 10) || 0;
+    const paginaB = Number.parseInt(b?.pagina || 0, 10) || 0;
+    if (paginaA !== paginaB) return paginaB - paginaA;
+
+    return (b?.id || 0) - (a?.id || 0);
+  });
+}
 
 export default function App() {
   const [user, setUser]                           = useState(null);
@@ -60,6 +85,7 @@ export default function App() {
     reembolso_escrevente: toMoneyNumber(ato.reembolso_escrevente),
     valor_pago: toMoneyNumber(ato.valor_pago),
     reembolso_devido_escrevente: toMoneyNumber(ato.reembolso_devido_escrevente),
+    forma_pagamento: normalizeFormaPagamento(ato.forma_pagamento),
     comissoes: normalizeComissoes(ato.comissoes),
   }), [normalizeComissoes]);
 
@@ -88,8 +114,8 @@ export default function App() {
         api.getReembolsos(),
         api.getReivindicacoes(),
       ]);
-      setAtos(atosData.map(normalizeAto));
-      setEscreventes(escsData);
+      setAtos(sortAtos(atosData.map(normalizeAto)));
+      setEscreventes(sortEscreventesByNome(escsData));
       setPagamentosReembolso(rembs.map(normalizeReembolso));
       setReivindicacoes(reivs);
     } catch (e) {
@@ -126,10 +152,10 @@ export default function App() {
       let ato;
       if (form.id && typeof form.id === 'number' && form.id < 1e12) {
         ato = normalizeAto(await api.atualizarAto(form.id, form));
-        setAtos(prev => prev.map(a => a.id === ato.id ? ato : a));
+        setAtos(prev => sortAtos(prev.map(a => a.id === ato.id ? ato : a)));
       } else {
         ato = normalizeAto(await api.criarAto(form));
-        setAtos(prev => [...prev, ato]);
+        setAtos(prev => sortAtos([...prev, ato]));
       }
       setModalAto(null);
     } catch (e) { setErro('Erro ao salvar ato: ' + e.message); }
@@ -140,10 +166,10 @@ export default function App() {
       let esc;
       if (form.id) {
         esc = await api.atualizarEscrevente(form.id, form);
-        setEscreventes(prev => prev.map(e => e.id === esc.id ? esc : e));
+        setEscreventes(prev => sortEscreventesByNome(prev.map(e => e.id === esc.id ? esc : e)));
       } else {
         esc = await api.criarEscrevente(form);
-        setEscreventes(prev => [...prev, esc]);
+        setEscreventes(prev => sortEscreventesByNome([...prev, esc]));
       }
       setModalEscrevente(null);
     } catch (e) { setErro('Erro ao salvar escrevente: ' + e.message); }
@@ -198,8 +224,10 @@ export default function App() {
       if (ref) { l = l.filter(a => parseInt(a.livro) === ref.livro && parseInt(a.pagina) === ref.pagina); }
       else { const b = busca.toLowerCase(); l = l.filter(a => padControle(a.controle).includes(b) || a.controle.includes(b)); }
     }
-    return l;
+    return sortAtos(l);
   }, [atos, userRole, userId, escreventes, busca]);
+
+  const escreventesOrdenados = useMemo(() => sortEscreventesByNome(escreventes), [escreventes]);
 
   const navItems = [
     { key: 'dashboard',  label: 'Dashboard',       icon: '📊' },
@@ -273,7 +301,7 @@ export default function App() {
               <button onClick={() => setModalDeclaro(true)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>📝 Declaro Participação</button>
             )}
             {view === 'escreventes' && userRole === 'admin' && (
-              <button onClick={() => setModalEscrevente({ nome: '', taxa: 20, cargo: '', email: '', compartilhar_com: [] })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
+              <button onClick={() => setModalEscrevente({ nome: '', taxa: 6, cargo: '', email: '', compartilhar_com: [] })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
             )}
           </div>
         </div>
@@ -284,15 +312,16 @@ export default function App() {
           </div>
         ) : (
           <>
-            {view === 'dashboard'  && <Dashboard atos={atos} escreventes={escreventes} />}
+            {view === 'dashboard'  && <Dashboard atos={atos} escreventes={escreventesOrdenados} />}
 
             {view === 'atos' && (
               <Atos
                 atos={atosFiltrados}
-                escreventes={escreventes}
+                escreventes={escreventesOrdenados}
                 reivindicacoes={reivindicacoes}
                 userRole={userRole}
                 userId={userId}
+                userStorageKey={user?.id || userRole}
                 onOpenAto={a => setModalAto(a)}
                 onDeclaro={() => setModalDeclaro(true)}
                 onRespostaCaptador={r => setModalRespostaCaptador(r)}
@@ -314,23 +343,26 @@ export default function App() {
             {view === 'relatorios' && (
               <Relatorios
                 atos={atos}
-                escreventes={escreventes}
+                escreventes={escreventesOrdenados}
                 pagamentosReembolso={pagamentosReembolso}
+                userRole={userRole}
+                userId={userId}
                 onAddPagamento={async p => { try { const novo = normalizeReembolso(await api.criarReembolso(p)); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
                 onConfirmarReembolso={async id => { try { const atualizado = normalizeReembolso(await api.confirmarReembolso(id)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
+                onContestarReembolso={async (id, justificativa) => { try { const atualizado = normalizeReembolso(await api.contestarReembolso(id, justificativa)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
               />
             )}
 
             {view === 'escreventes' && (
               <Escreventes
-                escreventes={escreventes}
+                escreventes={escreventesOrdenados}
                 atos={atos}
                 userRole={userRole}
                 onEditar={e => setModalEscrevente(e)}
               />
             )}
 
-            {view === 'usuarios' && userRole === 'admin' && <PainelUsuarios escreventes={escreventes} />}
+            {view === 'usuarios' && userRole === 'admin' && <PainelUsuarios escreventes={escreventesOrdenados} />}
           </>
         )}
       </div>
@@ -341,7 +373,7 @@ export default function App() {
           ato={modalAto === 'novo' ? null : modalAto}
           onClose={() => setModalAto(null)}
           onSave={salvarAto}
-          escreventes={escreventes}
+          escreventes={escreventesOrdenados}
           userRole={userRole}
           userId={userId}
         />
@@ -351,7 +383,7 @@ export default function App() {
           init={modalEscrevente}
           onClose={() => setModalEscrevente(null)}
           onSave={salvarEscrevente}
-          todosEscreventes={escreventes}
+          todosEscreventes={escreventesOrdenados}
         />
       )}
       {modalDeclaro && (

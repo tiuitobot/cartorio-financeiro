@@ -545,6 +545,8 @@ export const apiMock = {
       valor: toNumber(data.valor),
       notas: normalizeNullableString(data.notas),
       confirmado_escrevente: false,
+      contestado_escrevente: false,
+      contestacao_justificativa: null,
     };
     _reembolsos.push(novo);
     return { ...novo };
@@ -558,7 +560,28 @@ export const apiMock = {
     const isAdmin = ADMIN_FIN.includes(user.perfil);
     const isOwner = user.escrevente_id === _reembolsos[idx].escrevente_id;
     if (!isAdmin && !isOwner) throw new Error('Permissão insuficiente');
-    _reembolsos[idx] = { ..._reembolsos[idx], confirmado_escrevente: true };
+    _reembolsos[idx] = {
+      ..._reembolsos[idx],
+      confirmado_escrevente: true,
+      contestado_escrevente: false,
+      contestacao_justificativa: null,
+    };
+    return { ..._reembolsos[idx] };
+  },
+
+  contestarReembolso: async (id, justificativa) => {
+    await delay();
+    const user = requireUser();
+    const idx = _reembolsos.findIndex(r => r.id === id);
+    if (idx === -1) throw new Error('Reembolso não encontrado');
+    if (user.escrevente_id !== _reembolsos[idx].escrevente_id) throw new Error('Permissão insuficiente');
+    if (!String(justificativa || '').trim()) throw new Error('Justificativa obrigatória');
+    _reembolsos[idx] = {
+      ..._reembolsos[idx],
+      confirmado_escrevente: false,
+      contestado_escrevente: true,
+      contestacao_justificativa: String(justificativa).trim(),
+    };
     return { ..._reembolsos[idx] };
   },
 

@@ -147,9 +147,11 @@ function normalizePaymentForm(value) {
   const key = normalizeLabel(text);
   const mapping = {
     PIX: 'Pix',
-    'DEPOSITO/TRANSFERENCIA': 'Depósito/Transferência',
-    'CARTAO DE DEBITO': 'Cartão de Débito',
-    'CARTAO DE CREDITO': 'Cartão de Crédito',
+    TED: 'TED',
+    TRANSFERENCIA: 'TED',
+    'DEPOSITO/TRANSFERENCIA': 'TED',
+    'CARTAO DE DEBITO': 'Cartão Débito',
+    'CARTAO DE CREDITO': 'Cartão Crédito',
     DINHEIRO: 'Dinheiro',
     BOLETO: 'Boleto',
     CHEQUE: 'Cheque',

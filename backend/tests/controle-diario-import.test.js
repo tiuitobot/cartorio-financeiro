@@ -24,9 +24,10 @@ test('parseMoney normaliza moeda brasileira e números puros', () => {
 test('normalizePaymentForm normaliza variações conhecidas', () => {
   assert.deepEqual(normalizePaymentForm('PIX'), { value: 'Pix', warning: null });
   assert.deepEqual(normalizePaymentForm('Cartão de Débito'), {
-    value: 'Cartão de Débito',
+    value: 'Cartão Débito',
     warning: null,
   });
+  assert.deepEqual(normalizePaymentForm('DEPÓSITO/TRANSFERÊNCIA'), { value: 'TED', warning: null });
   assert.deepEqual(normalizePaymentForm('vale'), { value: 'Vale', warning: null });
 });
 

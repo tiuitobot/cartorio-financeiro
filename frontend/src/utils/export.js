@@ -31,6 +31,7 @@ export const ALL_COLS = [
   { key: 'livro',        label: 'Livro',                def: true,  get: (a)     => fmtLivro(a.livro),           raw: (a)     => fmtLivro(a.livro) },
   { key: 'pagina',       label: 'Página',               def: true,  get: (a)     => fmtPagina(a.pagina),         raw: (a)     => fmtPagina(a.pagina) },
   { key: 'captador',     label: 'Captador',             def: true,  get: (a, e)  => e.find(x => x.id === a.captador_id)?.nome || '—',  raw: (a, e) => e.find(x => x.id === a.captador_id)?.nome || '' },
+  { key: 'nome_tomador', label: 'Nome do Tomador',      def: false, get: (a)     => a.nome_tomador || '—',       raw: (a)     => a.nome_tomador || '' },
   { key: 'cap_pct',      label: 'Comissão Captador',    def: false, get: (a)     => { const c = (a.comissoes||[]).find(x => x.papel === 'Captador');  return c ? fmt(c.total) : '—'; }, raw: (a) => { const c = (a.comissoes||[]).find(x => x.papel === 'Captador');  return c ? c.total : 0; } },
   { key: 'executor',     label: 'Executor',             def: false, get: (a, e)  => e.find(x => x.id === a.executor_id)?.nome || '—',  raw: (a, e) => e.find(x => x.id === a.executor_id)?.nome || '' },
   { key: 'exe_pct',      label: 'Comissão Executor',    def: false, get: (a)     => { const c = (a.comissoes||[]).find(x => x.papel === 'Executor');  return c ? fmt(c.total) : '—'; }, raw: (a) => { const c = (a.comissoes||[]).find(x => x.papel === 'Executor');  return c ? c.total : 0; } },

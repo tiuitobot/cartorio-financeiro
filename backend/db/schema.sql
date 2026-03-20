@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS atos (
   pagina                  VARCHAR(5) NOT NULL,
   data_ato                DATE,
   tipo_ato                VARCHAR(255),
+  nome_tomador            VARCHAR(255),
   captador_id             INTEGER REFERENCES escreventes(id),
   executor_id             INTEGER REFERENCES escreventes(id),
   signatario_id           INTEGER REFERENCES escreventes(id),
@@ -81,6 +82,10 @@ CREATE TABLE IF NOT EXISTS pagamentos_reembolso (
   valor                DECIMAL(12,2) NOT NULL,
   notas                TEXT,
   confirmado_escrevente BOOLEAN DEFAULT false,
+  confirmado_em        TIMESTAMPTZ,
+  contestado_escrevente BOOLEAN DEFAULT false,
+  contestacao_justificativa TEXT,
+  contestado_em        TIMESTAMPTZ,
   CONSTRAINT chk_pagamentos_reembolso_valor_positivo CHECK (valor > 0),
   created_at           TIMESTAMPTZ DEFAULT NOW()
 );

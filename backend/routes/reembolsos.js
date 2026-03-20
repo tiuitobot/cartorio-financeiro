@@ -41,10 +41,45 @@ router.put('/:id/confirmar', authMiddleware, async (req, res) => {
     const isOwner = req.user.escrevente_id === pgto[0].escrevente_id;
     if (!isAdmin && !isOwner) return res.status(403).json({ erro: 'Permissão insuficiente' });
     const { rows } = await db.query(
-      'UPDATE pagamentos_reembolso SET confirmado_escrevente=true WHERE id=$1 RETURNING *', [id]
+      `UPDATE pagamentos_reembolso
+          SET confirmado_escrevente=true,
+              confirmado_em=NOW(),
+              contestado_escrevente=false,
+              contestacao_justificativa=NULL,
+              contestado_em=NULL
+        WHERE id=$1
+        RETURNING *`, [id]
     );
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ erro: 'Erro interno' }); }
+});
+
+router.put('/:id/contestar', authMiddleware, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const justificativa = String(req.body?.justificativa || '').trim();
+  if (!justificativa) return res.status(400).json({ erro: 'Justificativa obrigatória' });
+
+  try {
+    const { rows: pgto } = await db.query('SELECT * FROM pagamentos_reembolso WHERE id=$1', [id]);
+    if (!pgto.length) return res.status(404).json({ erro: 'Pagamento não encontrado' });
+
+    const isOwner = req.user.escrevente_id === pgto[0].escrevente_id;
+    if (!isOwner) return res.status(403).json({ erro: 'Permissão insuficiente' });
+
+    const { rows } = await db.query(
+      `UPDATE pagamentos_reembolso
+          SET confirmado_escrevente=false,
+              contestado_escrevente=true,
+              contestacao_justificativa=$2,
+              contestado_em=NOW()
+        WHERE id=$1
+        RETURNING *`,
+      [id, justificativa]
+    );
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ erro: 'Erro interno' });
+  }
 });
 
 module.exports = router;

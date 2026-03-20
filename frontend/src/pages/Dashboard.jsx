@@ -1,40 +1,118 @@
+import { useMemo, useState } from 'react';
+import { FSel } from '../components/ui/index.jsx';
 import { fmt, sLabel, sColor } from '../utils/format.js';
 
 export default function Dashboard({ atos, escreventes }) {
-  const totalFaturado = atos.reduce((s, a) => s + a.total, 0);
-  const totalRecebido = atos.reduce((s, a) => s + a.valor_pago, 0);
-  const totalPendente = atos.filter(a => a.status === 'pendente' || a.status === 'pago_menor').reduce((s, a) => s + Math.max(0, a.total - a.valor_pago), 0);
+  const anoAtual = new Date().getFullYear();
+  const anosDisponiveis = useMemo(() => {
+    const years = new Set([anoAtual]);
+    atos.forEach((ato) => {
+      if (ato.data_ato) years.add(Number.parseInt(ato.data_ato.slice(0, 4), 10));
+    });
+    return [...years].filter(Boolean).sort((a, b) => b - a);
+  }, [anoAtual, atos]);
+  const [anoSelecionado, setAnoSelecionado] = useState(String(anoAtual));
 
-  const meses       = [...new Set(atos.map(a => a.data_ato?.slice(0, 7)).filter(Boolean))].sort();
-  const ultimoMes   = meses[meses.length - 2];
-  const saldoHistorico      = ultimoMes ? atos.filter(a => a.data_ato?.startsWith(ultimoMes) || a.data_ato < ultimoMes).reduce((s, a) => s + Math.max(0, a.total - a.valor_pago), 0) : 0;
-  const saldoAtualDessesAtos = ultimoMes ? atos.filter(a => a.data_ato < (ultimoMes + '-32')).reduce((s, a) => s + Math.max(0, a.total - a.valor_pago), 0) : 0;
+  const atosAno = useMemo(
+    () => atos.filter((ato) => ato.data_ato?.startsWith(`${anoSelecionado}-`)),
+    [anoSelecionado, atos]
+  );
 
-  const topCobradores = escreventes.map(e => {
-    const atosE = atos.filter(a => a.captador_id === e.id && a.data_pagamento && a.data_ato);
-    if (!atosE.length) return null;
-    const media = atosE.reduce((s, a) => { const d = new Date(a.data_pagamento) - new Date(a.data_ato); return s + d; }, 0) / atosE.length;
-    return { nome: e.nome, mediaDias: Math.round(media / 86400000), qtd: atosE.length };
-  }).filter(Boolean).sort((a, b) => a.mediaDias - b.mediaDias).slice(0, 5);
+  const totalFaturado = atosAno.reduce((s, a) => s + a.total, 0);
+  const totalRecebido = atosAno.reduce((s, a) => s + Math.min(a.valor_pago, a.total), 0);
+  const totalPendente = atosAno.reduce((s, a) => s + Math.max(0, a.total - a.valor_pago), 0);
 
-  const totalEmolumentos  = atos.reduce((s, a) => s + a.emolumentos, 0);
-  const emolAReceber      = atos.filter(a => a.status === 'pendente' || a.status === 'pago_menor').reduce((s, a) => s + Math.max(0, a.emolumentos - (a.valor_pago > 0 ? Math.min(a.emolumentos, a.valor_pago) : 0)), 0);
-  const totalRepassesISSQN = atos.reduce((s, a) => s + a.repasses + a.issqn, 0);
+  const meses = [...new Set(atosAno.map((ato) => ato.data_ato?.slice(0, 7)).filter(Boolean))].sort();
+  const ultimoMes = meses[meses.length - 2];
+  const saldoHistorico = ultimoMes
+    ? atosAno.filter((ato) => ato.data_ato?.startsWith(ultimoMes) || ato.data_ato < ultimoMes)
+      .reduce((sum, ato) => sum + Math.max(0, ato.total - ato.valor_pago), 0)
+    : 0;
+  const saldoAtualDessesAtos = ultimoMes
+    ? atosAno.filter((ato) => ato.data_ato < `${ultimoMes}-32`)
+      .reduce((sum, ato) => sum + Math.max(0, ato.total - ato.valor_pago), 0)
+    : 0;
+
+  const topCobradores = escreventes
+    .map((escrevente) => {
+      const atosEscrevente = atosAno.filter((ato) =>
+        ato.captador_id === escrevente.id
+        && ato.status === 'pago'
+        && ato.data_pagamento
+        && ato.data_ato
+      );
+      if (!atosEscrevente.length) return null;
+
+      const media = atosEscrevente.reduce((sum, ato) => {
+        const diff = new Date(ato.data_pagamento) - new Date(ato.data_ato);
+        return sum + diff;
+      }, 0) / atosEscrevente.length;
+
+      return {
+        nome: escrevente.nome,
+        mediaDias: Math.round(media / 86400000),
+        qtd: atosEscrevente.length,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.mediaDias - b.mediaDias)
+    .slice(0, 5);
+
+  const totalEmolumentos = atosAno.reduce((s, a) => s + a.emolumentos, 0);
+  const emolAReceber = atosAno
+    .filter((ato) => ato.status === 'pendente' || ato.status === 'pago_menor')
+    .reduce((sum, ato) => sum + Math.max(0, ato.emolumentos - (ato.valor_pago > 0 ? Math.min(ato.emolumentos, ato.valor_pago) : 0)), 0);
+  const totalRepassesISSQN = atosAno.reduce((s, a) => s + a.repasses + a.issqn, 0);
 
   const metrics = [
-    { l: 'Total Faturado',          v: fmt(totalFaturado),     i: '📋', c: '#1e3a5f', bg: '#eff6ff' },
-    { l: 'Total Recebido',          v: fmt(totalRecebido),     i: '✅', c: '#16a34a', bg: '#f0fdf4' },
-    { l: 'Saldo a Receber',         v: fmt(totalPendente),     i: '⏳', c: '#dc2626', bg: '#fef2f2' },
-    { l: 'Total Emolumentos',       v: fmt(totalEmolumentos),  i: '⚖️', c: '#7c3aed', bg: '#f5f3ff' },
-    { l: 'Emolumentos a Receber',   v: fmt(emolAReceber),      i: '💰', c: '#9333ea', bg: '#fdf4ff' },
-    { l: 'Total Repasses + ISSQN',  v: fmt(totalRepassesISSQN), i: '🔁', c: '#d97706', bg: '#fffbeb' },
+    { l: 'Total Faturado', v: fmt(totalFaturado), i: '📋', c: '#1e3a5f', bg: '#eff6ff' },
+    { l: 'Total Recebido', v: fmt(totalRecebido), i: '✅', c: '#16a34a', bg: '#f0fdf4' },
+    { l: 'Saldo a Receber', v: fmt(totalPendente), i: '⏳', c: '#dc2626', bg: '#fef2f2' },
+    { l: 'Total Emolumentos', v: fmt(totalEmolumentos), i: '⚖️', c: '#7c3aed', bg: '#f5f3ff' },
+    { l: 'Emolumentos a Receber', v: fmt(emolAReceber), i: '💰', c: '#9333ea', bg: '#fdf4ff' },
+    { l: 'Total Repasses + ISSQN', v: fmt(totalRepassesISSQN), i: '🔁', c: '#d97706', bg: '#fffbeb' },
   ];
-  const porStatus = ['pago', 'pendente', 'pago_menor', 'pago_maior'].map(s => ({ l: sLabel(s), n: atos.filter(a => a.status === s).length, c: sColor(s) }));
+  const porStatus = ['pago', 'pendente', 'pago_menor', 'pago_maior']
+    .map((status) => ({ l: sLabel(status), n: atosAno.filter((ato) => ato.status === status).length, c: sColor(status) }));
   const maiorStatus = Math.max(...porStatus.map((item) => item.n), 1);
-  const topCapt   = escreventes.map(e => ({ nome: e.nome, total: atos.filter(a => a.captador_id === e.id).reduce((s, a) => s + a.emolumentos, 0), qtd: atos.filter(a => a.captador_id === e.id).length })).sort((a, b) => b.total - a.total).slice(0, 5);
+  const topCapt = escreventes
+    .map((escrevente) => ({
+      nome: escrevente.nome,
+      total: atosAno.filter((ato) => ato.captador_id === escrevente.id).reduce((sum, ato) => sum + ato.emolumentos, 0),
+      qtd: atosAno.filter((ato) => ato.captador_id === escrevente.id).length,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  const dadosMensais = useMemo(() => (
+    Array.from({ length: 12 }, (_, index) => {
+      const month = String(index + 1).padStart(2, '0');
+      const chave = `${anoSelecionado}-${month}`;
+      const atosMes = atosAno.filter((ato) => ato.data_ato?.startsWith(chave));
+      const faturado = atosMes.reduce((sum, ato) => sum + ato.total, 0);
+      const recebido = atosMes.reduce((sum, ato) => sum + Math.min(ato.total, ato.valor_pago), 0);
+      return {
+        mes: new Date(Number.parseInt(anoSelecionado, 10), index, 1).toLocaleDateString('pt-BR', { month: 'short' }),
+        faturado,
+        recebido,
+        pendente: Math.max(0, faturado - recebido),
+      };
+    })
+  ), [anoSelecionado, atosAno]);
+  const maiorBarra = Math.max(...dadosMensais.map((item) => item.faturado), 1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <FSel
+          label="Ano"
+          options={anosDisponiveis.map((ano) => ({ value: String(ano), label: String(ano) }))}
+          value={anoSelecionado}
+          onChange={(e) => setAnoSelecionado(e.target.value)}
+          style={{ width: 140 }}
+        />
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
         {metrics.map((m, i) => (
           <div key={i} style={{ background: m.bg, borderRadius: 14, padding: '18px 22px', border: `1.5px solid ${m.c}22`, display: 'flex', gap: 14, alignItems: 'center' }}>
@@ -60,30 +138,57 @@ export default function Dashboard({ atos, escreventes }) {
         </div>
       )}
 
+      <div style={{ background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #e8edf5', boxShadow: '0 2px 16px #0f2a5511' }}>
+        <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 16, fontSize: 15 }}>📆 Faturado x Recebido x Pendente por Mês</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(0,1fr))', gap: 12, alignItems: 'end', minHeight: 220 }}>
+          {dadosMensais.map((item) => {
+            const totalHeight = item.faturado > 0 ? Math.max(14, (item.faturado / maiorBarra) * 160) : 8;
+            const recebidoHeight = item.faturado > 0 ? Math.max(0, (item.recebido / item.faturado) * totalHeight) : 0;
+            const pendenteHeight = Math.max(0, totalHeight - recebidoHeight);
+            return (
+              <div key={item.mes} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{fmt(item.faturado)}</div>
+                <div style={{ height: 168, display: 'flex', alignItems: 'flex-end' }}>
+                  <div style={{ width: 34, background: '#e2e8f0', borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse', minHeight: 8 }}>
+                    <div style={{ height: recebidoHeight, background: '#22c55e' }} />
+                    <div style={{ height: pendenteHeight, background: '#ef4444' }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#334155', fontWeight: 700, textTransform: 'capitalize' }}>{item.mes}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 14, fontSize: 12, color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Recebido</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Pendente</div>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
         <div style={{ background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #e8edf5', boxShadow: '0 2px 16px #0f2a5511' }}>
           <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 16, fontSize: 15 }}>📊 Atos por Status</div>
-          {porStatus.map((s, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 12, height: 12, borderRadius: '50%', background: s.c }} /><span style={{ fontSize: 14 }}>{s.l}</span></div>
+          {porStatus.map((status, index) => (
+            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 12, height: 12, borderRadius: '50%', background: status.c }} /><span style={{ fontSize: 14 }}>{status.l}</span></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 180, justifyContent: 'flex-end' }}>
                 <div style={{ width: 140, height: 8, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${s.n > 0 ? Math.max(6, (s.n / maiorStatus) * 100) : 0}%`, background: s.c, borderRadius: 999, opacity: 0.8 }} />
+                  <div style={{ height: '100%', width: `${status.n > 0 ? Math.max(6, (status.n / maiorStatus) * 100) : 0}%`, background: status.c, borderRadius: 999, opacity: 0.8 }} />
                 </div>
-                <span style={{ fontWeight: 700, color: s.c, minWidth: 24, textAlign: 'right' }}>{s.n}</span>
+                <span style={{ fontWeight: 700, color: status.c, minWidth: 24, textAlign: 'right' }}>{status.n}</span>
               </div>
             </div>
           ))}
         </div>
         <div style={{ background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #e8edf5', boxShadow: '0 2px 16px #0f2a5511' }}>
           <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 16, fontSize: 15 }}>🏆 Top Captadores</div>
-          {topCapt.map((e, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', background: i === 0 ? '#f0f7ff' : '#fafbfc', borderRadius: 8 }}>
+          {topCapt.map((escrevente, index) => (
+            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', background: index === 0 ? '#f0f7ff' : '#fafbfc', borderRadius: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#1e3a5f', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{i + 1}</span>
-                <div><div style={{ fontWeight: 600, fontSize: 13 }}>{e.nome}</div><div style={{ fontSize: 11, color: '#94a3b8' }}>{e.qtd} atos</div></div>
+                <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#1e3a5f', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{index + 1}</span>
+                <div><div style={{ fontWeight: 600, fontSize: 13 }}>{escrevente.nome}</div><div style={{ fontSize: 11, color: '#94a3b8' }}>{escrevente.qtd} atos</div></div>
               </div>
-              <span style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 13 }}>{fmt(e.total)}</span>
+              <span style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 13 }}>{fmt(escrevente.total)}</span>
             </div>
           ))}
         </div>
@@ -91,13 +196,13 @@ export default function Dashboard({ atos, escreventes }) {
           <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 16, fontSize: 15 }}>⚡ Top Cobradores (tempo médio)</div>
           {topCobradores.length === 0
             ? <div style={{ color: '#94a3b8', fontSize: 13 }}>Dados insuficientes.</div>
-            : topCobradores.map((e, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', background: i === 0 ? '#f0fdf4' : '#fafbfc', borderRadius: 8 }}>
+            : topCobradores.map((escrevente, index) => (
+              <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', background: index === 0 ? '#f0fdf4' : '#fafbfc', borderRadius: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#16a34a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{i + 1}</span>
-                  <div><div style={{ fontWeight: 600, fontSize: 13 }}>{e.nome}</div><div style={{ fontSize: 11, color: '#94a3b8' }}>{e.qtd} atos pagos</div></div>
+                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#16a34a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{index + 1}</span>
+                  <div><div style={{ fontWeight: 600, fontSize: 13 }}>{escrevente.nome}</div><div style={{ fontSize: 11, color: '#94a3b8' }}>{escrevente.qtd} atos pagos</div></div>
                 </div>
-                <span style={{ fontWeight: 700, color: '#16a34a', fontSize: 13 }}>{e.mediaDias}d</span>
+                <span style={{ fontWeight: 700, color: '#16a34a', fontSize: 13 }}>{escrevente.mediaDias}d</span>
               </div>
             ))
           }

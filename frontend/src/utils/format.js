@@ -20,4 +20,8 @@ export const fmtDate    = d => {
 };
 export const sLabel     = s => ({ pago: 'Pago', pendente: 'Pendente', pago_menor: 'Pago a menor', pago_maior: 'Pago a maior' }[s] || s);
 export const sColor     = s => ({ pago: '#22c55e', pendente: '#f59e0b', pago_menor: '#ef4444', pago_maior: '#3b82f6' }[s] || '#94a3b8');
-export const parseRef   = str => { const m = str.replace(/\s/g, '').toUpperCase().match(/^L(\d+)P(\d+)$/); return m ? { livro: parseInt(m[1]), pagina: parseInt(m[2]) } : null; };
+export const parseRef   = str => {
+  const normalized = String(str || '').replace(/\s/g, '').toUpperCase();
+  const match = normalized.match(/^L?(\d+)P(\d+)$/) || normalized.match(/^(\d+)[\/-](\d+)$/);
+  return match ? { livro: parseInt(match[1], 10), pagina: parseInt(match[2], 10) } : null;
+};
