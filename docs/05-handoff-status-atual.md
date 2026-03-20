@@ -19,11 +19,14 @@ Foram criados:
 - [01-visao-executiva-hospedagem.md](/home/linuxadmin/repos/cartorio-financeiro/docs/01-visao-executiva-hospedagem.md)
 - [02-mvp-railway-runbook.md](/home/linuxadmin/repos/cartorio-financeiro/docs/02-mvp-railway-runbook.md)
 - [03-migracao-google-cloud.md](/home/linuxadmin/repos/cartorio-financeiro/docs/03-migracao-google-cloud.md)
+- [16-avaliacao-especificacao-v2.md](/home/linuxadmin/repos/cartorio-financeiro/docs/16-avaliacao-especificacao-v2.md)
+- [17-backlog-especificacao-v2.md](/home/linuxadmin/repos/cartorio-financeiro/docs/17-backlog-especificacao-v2.md)
 
 Decisao registrada:
 
 - subir MVP no Railway
 - migrar para Google Cloud depois
+- tratar a especificacao v2 do Henrique em fases, separando quick wins de mudancas estruturais de dominio
 
 ### 3. Reestruturacao do projeto
 

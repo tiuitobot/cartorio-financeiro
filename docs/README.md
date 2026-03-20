@@ -52,6 +52,12 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [15-lote-homologacao-controlado.md](/home/linuxadmin/repos/cartorio-financeiro/docs/15-lote-homologacao-controlado.md)
   Lote `.xlsx` controlado para testar upload, preview e importacao sem depender da planilha real do cartorio.
 
+- [16-avaliacao-especificacao-v2.md](/home/linuxadmin/repos/cartorio-financeiro/docs/16-avaliacao-especificacao-v2.md)
+  Avaliacao item a item das novas recomendacoes do Henrique na especificacao v2, separando o que entra como melhoria simples do que exige redesign de dominio.
+
+- [17-backlog-especificacao-v2.md](/home/linuxadmin/repos/cartorio-financeiro/docs/17-backlog-especificacao-v2.md)
+  Backlog priorizado em `P1`, `P2` e `P3`, com impacto tecnico, dependencias e ordem recomendada de implementacao.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.
