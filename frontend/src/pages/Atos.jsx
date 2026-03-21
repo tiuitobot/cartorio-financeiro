@@ -55,6 +55,9 @@ export default function Atos({
   const reivRecusadas   = reivindicacoes.filter(r => r.escrevente_id === userId && r.status === 'recusada');
   const reivPendentes   = reivindicacoes.filter(r => r.status === 'pendente' && atos.find(a => a.id === r.ato_id && a.captador_id === userId));
   const reivContestadas = reivindicacoes.filter(r => r.status === 'contestada');
+  const hasFiltrosAtivos = Boolean(
+    busca || fCaptador || fEnvolvido || fStatus || fConfirmacao || fInicio || fFim || fValorMin || fValorMax
+  );
 
   const atosListados = useMemo(() => {
     return atos.filter((ato) => {
@@ -177,78 +180,93 @@ export default function Atos({
         </Card>
       )}
 
-      <div style={{ marginBottom: 18, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <FInput placeholder="Controle ou L42P15..." value={busca} onChange={e => onBusca(e.target.value)} style={{ width: 280 }} />
-        <FSel
-          label="Status"
-          options={[
-            { value: '', label: 'Todos' },
-            { value: 'pendente', label: 'Pendente' },
-            { value: 'pago', label: 'Pago' },
-            { value: 'pago_menor', label: 'Pago a menor' },
-            { value: 'pago_maior', label: 'Pago a maior' },
-          ]}
-          value={fStatus}
-          onChange={(e) => setFStatus(e.target.value)}
-          style={{ width: 180 }}
-        />
-        <FSel
-          label="Captador"
-          options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-          value={fCaptador}
-          onChange={(e) => setFCaptador(e.target.value)}
-          style={{ width: 220 }}
-        />
-        <FSel
-          label="Escrevente envolvido"
-          options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-          value={fEnvolvido}
-          onChange={(e) => setFEnvolvido(e.target.value)}
-          style={{ width: 220 }}
-        />
-        <FSel
-          label="Recebimento"
-          options={[
-            { value: '', label: 'Todos' },
-            { value: 'confirmado', label: 'Confirmado' },
-            { value: 'nao_confirmado', label: 'Não confirmado' },
-          ]}
-          value={fConfirmacao}
-          onChange={(e) => setFConfirmacao(e.target.value)}
-          style={{ width: 180 }}
-        />
-        <FInput label="Início" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} style={{ width: 160 }} />
-        <FInput label="Fim" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} style={{ width: 160 }} />
-        <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} style={{ width: 150 }} />
-        <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} style={{ width: 150 }} />
-        <Btn variant="secondary" onClick={() => setShowColPanel((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>⚙️ Colunas ({selectedCols.length})</Btn>
-        {selectedCols.length !== TODAS_COLUNAS.length && (
-          <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ padding: '9px 12px', fontSize: 12 }}>
-            Ver todas as colunas
-          </Btn>
-        )}
-        {(busca || fCaptador || fEnvolvido || fStatus || fConfirmacao || fInicio || fFim || fValorMin || fValorMax) && (
-          <Btn variant="secondary" onClick={resetFiltros} style={{ padding: '9px 12px', fontSize: 12 }}>Limpar filtros</Btn>
-        )}
-      </div>
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Filtros e Colunas</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+              Refine a listagem por situação financeira, envolvidos, período e faixa de valor.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Btn variant="secondary" onClick={() => setShowColPanel((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>
+              ⚙️ Colunas ({selectedCols.length})
+            </Btn>
+            {selectedCols.length !== TODAS_COLUNAS.length && (
+              <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ padding: '9px 12px', fontSize: 12 }}>
+                Ver todas as colunas
+              </Btn>
+            )}
+            {hasFiltrosAtivos && (
+              <Btn variant="secondary" onClick={resetFiltros} style={{ padding: '9px 12px', fontSize: 12 }}>
+                Limpar filtros
+              </Btn>
+            )}
+          </div>
+        </div>
 
-      {showColPanel && (
-        <Card style={{ marginBottom: 18, padding: 16 }}>
-          <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 10, fontSize: 13 }}>Selecionar colunas</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-            {TODAS_COLUNAS.map((coluna) => (
-              <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
-                {coluna.label}
-              </label>
-            ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 12 }}>
+          <FInput label="Busca" placeholder="Controle ou L42P15..." value={busca} onChange={e => onBusca(e.target.value)} />
+          <FSel
+            label="Status"
+            options={[
+              { value: '', label: 'Todos' },
+              { value: 'pendente', label: 'Pendente' },
+              { value: 'pago', label: 'Pago' },
+              { value: 'pago_menor', label: 'Pago a menor' },
+              { value: 'pago_maior', label: 'Pago a maior' },
+            ]}
+            value={fStatus}
+            onChange={(e) => setFStatus(e.target.value)}
+          />
+          <FSel
+            label="Captador"
+            options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+            value={fCaptador}
+            onChange={(e) => setFCaptador(e.target.value)}
+          />
+          <FSel
+            label="Escrevente envolvido"
+            options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+            value={fEnvolvido}
+            onChange={(e) => setFEnvolvido(e.target.value)}
+          />
+          <FSel
+            label="Conferência financeira"
+            options={[
+              { value: '', label: 'Todas' },
+              { value: 'confirmado', label: 'Conferido' },
+              { value: 'nao_confirmado', label: 'Não conferido' },
+            ]}
+            value={fConfirmacao}
+            onChange={(e) => setFConfirmacao(e.target.value)}
+          />
+          <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
+          <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
+          <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
+          <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
+        </div>
+
+        {showColPanel && (
+          <div style={{ marginTop: 16, borderTop: '1px solid #e8edf5', paddingTop: 16 }}>
+            <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 10, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              Selecionar colunas
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {TODAS_COLUNAS.map((coluna) => (
+                <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
+                  {coluna.label}
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Todas</Btn>
+              <Btn variant="secondary" onClick={() => setSelectedCols(COLUNAS_PADRAO)} style={{ fontSize: 12, padding: '6px 12px' }}>Padrão</Btn>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Todas</Btn>
-            <Btn variant="secondary" onClick={() => setSelectedCols(COLUNAS_PADRAO)} style={{ fontSize: 12, padding: '6px 12px' }}>Padrão</Btn>
-          </div>
-        </Card>
-      )}
+        )}
+      </Card>
 
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <StickyXScroll>
