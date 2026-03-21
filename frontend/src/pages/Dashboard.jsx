@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FSel } from '../components/ui/index.jsx';
+import { Btn, FilterChip, Sheet } from '../components/ui/index.jsx';
 import { fmt, sLabel, sColor } from '../utils/format.js';
 
 export default function Dashboard({ atos, escreventes }) {
@@ -100,18 +100,55 @@ export default function Dashboard({ atos, escreventes }) {
     })
   ), [anoSelecionado, atosAno]);
   const maiorBarra = Math.max(...dadosMensais.map((item) => item.faturado), 1);
+  const [showAnoSheet, setShowAnoSheet] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <FSel
-          label="Ano"
-          options={anosDisponiveis.map((ano) => ({ value: String(ano), label: String(ano) }))}
-          value={anoSelecionado}
-          onChange={(e) => setAnoSelecionado(e.target.value)}
-          style={{ width: 140 }}
-        />
+      <div style={{ background: 'linear-gradient(180deg,#ffffff,#f8fbff)', borderRadius: 14, padding: 18, border: '1px solid #e8edf5', boxShadow: '0 2px 16px #0f2a5511' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Visão do Dashboard</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+              Ano ativo em destaque, com troca em sheet para manter o topo leve e compatível com mobile.
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <FilterChip active>{anoSelecionado}</FilterChip>
+            <Btn variant="secondary" onClick={() => setShowAnoSheet(true)} style={{ padding: '9px 12px', fontSize: 12 }}>
+              Escolher ano
+            </Btn>
+          </div>
+        </div>
       </div>
+
+      <Sheet
+        open={showAnoSheet}
+        title="Ano do dashboard"
+        subtitle="Troque a visão anual sem ocupar o topo com selects permanentes."
+        onClose={() => setShowAnoSheet(false)}
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Btn variant="secondary" onClick={() => setShowAnoSheet(false)} style={{ padding: '8px 12px', fontSize: 12 }}>
+              Fechar
+            </Btn>
+          </div>
+        )}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {anosDisponiveis.map((ano) => (
+            <FilterChip
+              key={ano}
+              active={anoSelecionado === String(ano)}
+              onClick={() => {
+                setAnoSelecionado(String(ano));
+                setShowAnoSheet(false);
+              }}
+            >
+              {ano}
+            </FilterChip>
+          ))}
+        </div>
+      </Sheet>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
         {metrics.map((m, i) => (

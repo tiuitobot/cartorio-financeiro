@@ -34,6 +34,8 @@ export default function Relatorios({
   const [selectedCols, setSelectedCols] = useState(() => ALL_COLS.filter((item) => item.def).map((item) => item.key));
   const [showColPanel, setShowColPanel] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showMensalPanel, setShowMensalPanel] = useState(false);
+  const [showComPanel, setShowComPanel] = useState(false);
   const [fStatus, setFStatus] = useState('');
   const [fCaptador, setFCaptador] = useState('');
   const [fInicio, setFInicio] = useState('');
@@ -132,6 +134,15 @@ export default function Relatorios({
     fCaptador ? { key: 'captador', label: `Captador: ${captadorNome || fCaptador}`, onRemove: () => setFCaptador('') } : null,
     fInicio ? { key: 'inicio', label: `De: ${fInicio}`, onRemove: () => setFInicio('') } : null,
     fFim ? { key: 'fim', label: `Até: ${fFim}`, onRemove: () => setFFim('') } : null,
+  ].filter(Boolean);
+  const activeMensalFilters = [
+    mesFat ? { key: 'mes_fat', label: `Faturamento: ${mesFat}`, onRemove: null } : null,
+    mesRec ? { key: 'mes_rec', label: `Recebimentos: ${mesRec}`, onRemove: null } : null,
+  ].filter(Boolean);
+  const activeComFilters = [
+    comInicio ? { key: 'com_inicio', label: `De: ${comInicio}`, onRemove: () => setComInicio('') } : null,
+    comFim ? { key: 'com_fim', label: `Até: ${comFim}`, onRemove: () => setComFim('') } : null,
+    comEscIds.length > 0 ? { key: 'com_esc', label: `${comEscIds.length} escrevente(s)`, onRemove: () => setComEscIds([]) } : null,
   ].filter(Boolean);
 
   return (
@@ -333,11 +344,73 @@ export default function Relatorios({
 
       {tab === 'mensal' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <Card style={{ padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Períodos do Relatório Mensal</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                  Os meses de faturamento e recebimento saem do layout principal e ficam em um sheet único.
+                </div>
+              </div>
+              <Btn variant="secondary" onClick={() => setShowMensalPanel(true)} style={{ padding: '9px 12px', fontSize: 12 }}>
+                Períodos
+              </Btn>
+            </div>
+            <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7 }}>Seleção ativa</div>
+              {activeMensalFilters.map((filter) => (
+                <span
+                  key={filter.key}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    border: '1px solid #dbe4f0',
+                    background: '#fff',
+                    color: '#475569',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {filter.label}
+                </span>
+              ))}
+            </div>
+          </Card>
+
+          <Sheet
+            open={showMensalPanel}
+            title="Períodos do relatório mensal"
+            subtitle="Defina separadamente o mês de faturamento e o mês de recebimentos."
+            onClose={() => setShowMensalPanel(false)}
+            footer={(
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Btn variant="secondary" onClick={() => setShowMensalPanel(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Fechar
+                </Btn>
+              </div>
+            )}
+          >
+            <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Faturamento</div>
+                <FInput label="Mês" type="month" value={mesFat} onChange={(e) => setMesFat(e.target.value)} />
+              </div>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Recebimentos</div>
+                <FInput label="Mês" type="month" value={mesRec} onChange={(e) => setMesRec(e.target.value)} />
+              </div>
+            </div>
+          </Sheet>
+
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 15 }}>📋 Faturamento do Mês</div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <FInput label="Mês" type="month" value={mesFat} onChange={(e) => setMesFat(e.target.value)} style={{ width: 160 }} />
+                <div style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, color: '#475569', fontWeight: 700 }}>
+                  {mesFat}
+                </div>
                 <Btn onClick={() => exportXLSX(atosFat.map((ato) => ({ Controle: padControle(ato.controle), Data: fmtDate(ato.data_ato), Total: ato.total, Emolumentos: ato.emolumentos, Repasses: ato.repasses, ISSQN: ato.issqn, 'Remb.Tab': ato.reembolso_tabeliao, 'Remb.Esc': ato.reembolso_escrevente })), 'Faturamento', 'faturamento.xlsx')} style={{ fontSize: 13, padding: '9px 14px' }}>📥 Excel</Btn>
               </div>
             </div>
@@ -363,7 +436,9 @@ export default function Relatorios({
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 15 }}>✅ Recebimentos do Mês</div>
-              <FInput label="Mês" type="month" value={mesRec} onChange={(e) => setMesRec(e.target.value)} style={{ width: 160 }} />
+              <div style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, color: '#475569', fontWeight: 700 }}>
+                {mesRec}
+              </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
               {[
@@ -396,24 +471,78 @@ export default function Relatorios({
 
       {tab === 'comissoes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Card>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <FInput label="Início" type="date" value={comInicio} onChange={(e) => setComInicio(e.target.value)} style={{ width: 155 }} />
-              <FInput label="Fim" type="date" value={comFim} onChange={(e) => setComFim(e.target.value)} style={{ width: 155 }} />
+          <Card style={{ padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Escreventes</label>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Filtros de Comissões</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                  Período e escreventes selecionados ficam em um painel lateral único, como nas demais listagens.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Btn variant="secondary" onClick={() => setShowComPanel(true)} style={{ fontSize: 12, padding: '9px 12px' }}>
+                  Filtros
+                </Btn>
+                <Btn onClick={() => exportXLSX(dadosCom.map((item) => ({ Escrevente: item.nome, 'Atos Praticados': item.qtdAtos, 'Total Emolumentos': item.emolumentos, 'Total Comissões': item.comissoes })), 'Comissões', 'comissoes.xlsx')} style={{ fontSize: 12, padding: '9px 12px' }}>
+                  📥 Excel
+                </Btn>
+                {activeComFilters.length > 0 && (
+                  <Btn variant="secondary" onClick={() => { setComInicio(anoInicio); setComFim(anoFim); setComEscIds([]); }} style={{ fontSize: 12, padding: '9px 12px' }}>
+                    Limpar tudo
+                  </Btn>
+                )}
+              </div>
+            </div>
+            {activeComFilters.length > 0 && (
+              <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7 }}>Filtros ativos</div>
+                {activeComFilters.map((filter) => (
+                  <ActiveFilterTag key={filter.key} label={filter.label} onRemove={filter.onRemove} />
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Sheet
+            open={showComPanel}
+            title="Filtros de comissões"
+            subtitle="Defina período e restringa escreventes sem ocupar a área principal do relatório."
+            onClose={() => setShowComPanel(false)}
+            footer={(
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <Btn variant="secondary" onClick={() => { setComInicio(anoInicio); setComFim(anoFim); setComEscIds([]); }} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Limpar tudo
+                </Btn>
+                <Btn variant="secondary" onClick={() => setShowComPanel(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Fechar
+                </Btn>
+              </div>
+            )}
+          >
+            <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Período</div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <FInput label="Início" type="date" value={comInicio} onChange={(e) => setComInicio(e.target.value)} />
+                  <FInput label="Fim" type="date" value={comFim} onChange={(e) => setComFim(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Escreventes</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {escreventes.map((item) => (
-                    <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer', background: comEscIds.includes(item.id) ? '#dbeafe' : '#f1f5f9', borderRadius: 6, padding: '4px 8px', border: `1px solid ${comEscIds.includes(item.id) ? '#93c5fd' : '#e2e8f0'}` }}>
-                      <input type="checkbox" checked={comEscIds.includes(item.id)} onChange={() => setComEscIds((prev) => prev.includes(item.id) ? prev.filter((value) => value !== item.id) : [...prev, item.id])} style={{ width: 12, height: 12 }} />
+                    <FilterChip
+                      key={item.id}
+                      active={comEscIds.includes(item.id)}
+                      onClick={() => setComEscIds((prev) => prev.includes(item.id) ? prev.filter((value) => value !== item.id) : [...prev, item.id])}
+                    >
                       {item.nome.split(' ')[0]}
-                    </label>
+                    </FilterChip>
                   ))}
                 </div>
               </div>
-              <Btn onClick={() => exportXLSX(dadosCom.map((item) => ({ Escrevente: item.nome, 'Atos Praticados': item.qtdAtos, 'Total Emolumentos': item.emolumentos, 'Total Comissões': item.comissoes })), 'Comissões', 'comissoes.xlsx')} style={{ fontSize: 13, padding: '9px 14px' }}>📥 Excel</Btn>
             </div>
-          </Card>
+          </Sheet>
 
           <Card style={{ padding: 0, overflow: 'hidden' }}>
             <StickyXScroll>
