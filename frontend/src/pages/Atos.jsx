@@ -76,6 +76,71 @@ function ActiveFilterTag({ label, onRemove }) {
   );
 }
 
+function Sheet({ open, title, subtitle, onClose, children, footer }) {
+  if (!open) return null;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#0f172a66',
+        backdropFilter: 'blur(3px)',
+        zIndex: 1000,
+        display: 'flex',
+        justifyContent: 'flex-end',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(420px, 100vw)',
+          height: '100%',
+          background: 'linear-gradient(180deg,#ffffff,#f8fbff)',
+          borderLeft: '1px solid #dbe4f0',
+          boxShadow: '-18px 0 40px #0f172a22',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div style={{ padding: '22px 20px 16px', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{title}</div>
+              {subtitle && <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>{subtitle}</div>}
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                border: '1px solid #dbe4f0',
+                background: '#fff',
+                color: '#475569',
+                borderRadius: 12,
+                width: 36,
+                height: 36,
+                cursor: 'pointer',
+                fontSize: 16,
+                fontWeight: 700,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+          {children}
+        </div>
+        {footer && (
+          <div style={{ padding: 20, borderTop: '1px solid #e2e8f0', background: '#fff' }}>
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Atos({
   atos, escreventes, reivindicacoes, userRole, userId,
   onOpenAto, onDeclaro, onRespostaCaptador, onContestar, onDecisaoFinanceiro,
@@ -119,6 +184,7 @@ export default function Atos({
   );
   const captadorNome = escreventes.find((item) => item.id === Number.parseInt(fCaptador, 10))?.nome;
   const envolvidoNome = escreventes.find((item) => item.id === Number.parseInt(fEnvolvido, 10))?.nome;
+  const advancedFilterCount = [fCaptador, fEnvolvido, fInicio, fFim, fValorMin, fValorMax].filter(Boolean).length;
 
   const atosListados = useMemo(() => {
     return atos.filter((ato) => {
@@ -258,14 +324,14 @@ export default function Atos({
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Filtros e Colunas</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-              Use filtros rápidos para operação diária e abra os filtros avançados só quando precisar.
+              Busca e filtros rápidos ficam visíveis. O restante abre em painéis laterais pensados para desktop e phone.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Btn variant="secondary" onClick={() => setShowAdvancedFilters((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>
-              {showAdvancedFilters ? 'Fechar filtros' : 'Mais filtros'}
+            <Btn variant="secondary" onClick={() => setShowAdvancedFilters(true)} style={{ padding: '9px 12px', fontSize: 12 }}>
+              Filtros {advancedFilterCount > 0 ? `(${advancedFilterCount})` : ''}
             </Btn>
-            <Btn variant="secondary" onClick={() => setShowColPanel((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>
+            <Btn variant="secondary" onClick={() => setShowColPanel(true)} style={{ padding: '9px 12px', fontSize: 12 }}>
               ⚙️ Colunas ({selectedCols.length})
             </Btn>
             {hasFiltrosAtivos && (
@@ -331,57 +397,104 @@ export default function Atos({
             ))}
           </div>
         )}
+      </Card>
 
-        {showAdvancedFilters && (
-          <div style={{ marginTop: 18, borderTop: '1px solid #e8edf5', paddingTop: 18 }}>
-            <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 12, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Filtros avançados
-            </div>
-            <div style={{ background: 'linear-gradient(180deg,#f8fbff,#ffffff)', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 12 }}>
-                <FSel
-                  label="Captador"
-                  options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-                  value={fCaptador}
-                  onChange={(e) => setFCaptador(e.target.value)}
-                />
-                <FSel
-                  label="Escrevente envolvido"
-                  options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-                  value={fEnvolvido}
-                  onChange={(e) => setFEnvolvido(e.target.value)}
-                />
-                <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
-                <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
-                <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
-                <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
-              </div>
-            </div>
+      <Sheet
+        open={showAdvancedFilters}
+        title="Filtros avançados"
+        subtitle="Use estes filtros quando a operação sair da rotina rápida de status e conferência."
+        onClose={() => setShowAdvancedFilters(false)}
+        footer={(
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <Btn variant="secondary" onClick={resetFiltros} style={{ fontSize: 12, padding: '8px 12px' }}>
+              Limpar tudo
+            </Btn>
+            <Btn variant="secondary" onClick={() => setShowAdvancedFilters(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+              Fechar
+            </Btn>
           </div>
         )}
+      >
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Pessoas</div>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <FSel
+                label="Captador"
+                options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+                value={fCaptador}
+                onChange={(e) => setFCaptador(e.target.value)}
+              />
+              <FSel
+                label="Escrevente envolvido"
+                options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+                value={fEnvolvido}
+                onChange={(e) => setFEnvolvido(e.target.value)}
+              />
+            </div>
+          </div>
+          <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Período</div>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
+              <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Faixa de valor</div>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
+              <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
+            </div>
+          </div>
+        </div>
+      </Sheet>
 
-        {showColPanel && (
-          <div style={{ marginTop: 18, borderTop: '1px solid #e8edf5', paddingTop: 18 }}>
-            <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 10, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Selecionar colunas
+      <Sheet
+        open={showColPanel}
+        title="Colunas visíveis"
+        subtitle="Ajuste a visualização sem poluir a listagem principal."
+        onClose={() => setShowColPanel(false)}
+        footer={(
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '8px 12px' }}>
+                Todas
+              </Btn>
+              <Btn variant="secondary" onClick={() => setSelectedCols(COLUNAS_PADRAO)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                Padrão
+              </Btn>
             </div>
-            <div style={{ background: 'linear-gradient(180deg,#f8fbff,#ffffff)', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-                {TODAS_COLUNAS.map((coluna) => (
-                  <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', border: selectedCols.includes(coluna.key) ? '1px solid #93c5fd' : '1px solid #e2e8f0', borderRadius: 12, padding: '10px 12px', background: selectedCols.includes(coluna.key) ? '#eff6ff' : '#fff', color: selectedCols.includes(coluna.key) ? '#1d4ed8' : '#334155', fontWeight: selectedCols.includes(coluna.key) ? 700 : 500 }}>
-                    <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
-                    {coluna.label}
-                  </label>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Todas</Btn>
-                <Btn variant="secondary" onClick={() => setSelectedCols(COLUNAS_PADRAO)} style={{ fontSize: 12, padding: '6px 12px' }}>Padrão</Btn>
-              </div>
-            </div>
-          </div> 
+            <Btn variant="secondary" onClick={() => setShowColPanel(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+              Fechar
+            </Btn>
+          </div>
         )}
-      </Card>
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+          {TODAS_COLUNAS.map((coluna) => (
+            <label
+              key={coluna.key}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 13,
+                cursor: 'pointer',
+                border: selectedCols.includes(coluna.key) ? '1px solid #93c5fd' : '1px solid #e2e8f0',
+                borderRadius: 14,
+                padding: '12px 13px',
+                background: selectedCols.includes(coluna.key) ? '#eff6ff' : '#fff',
+                color: selectedCols.includes(coluna.key) ? '#1d4ed8' : '#334155',
+                fontWeight: selectedCols.includes(coluna.key) ? 700 : 500,
+              }}
+            >
+              <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
+              {coluna.label}
+            </label>
+          ))}
+        </div>
+      </Sheet>
 
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <StickyXScroll>
