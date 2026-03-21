@@ -184,6 +184,8 @@ export default function App() {
         ato = normalizeAto(await api.criarAto(form));
         setAtos(prev => sortAtos([...prev, ato]));
       }
+      const pendenciasAtualizadas = await api.getPendencias({ status: 'todas' });
+      setPendencias(pendenciasAtualizadas);
       if (closeModal) setModalAto(null);
       else setModalAto(ato);
       return ato;
