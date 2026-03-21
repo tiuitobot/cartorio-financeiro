@@ -179,3 +179,27 @@ test('enrichAtoFinance trata pagamento legado sem verificação como lançado e 
   assert.equal(ato.status_calculado, 'pago_menor');
   assert.equal(ato.status, 'pendente');
 });
+
+test('enrichAtoFinance ignora metadata legada de pagamento quando valor_pago é zero', () => {
+  const ato = enrichAtoFinance({
+    emolumentos: 1000,
+    repasses: 0,
+    issqn: 0,
+    reembolso_tabeliao: 0,
+    reembolso_escrevente: 0,
+    valor_pago: 0,
+    data_pagamento: null,
+    forma_pagamento: 'Pix',
+    verificado_por: null,
+    verificado_em: null,
+  });
+
+  assert.equal(ato.valor_pago_lancado, 0);
+  assert.equal(ato.valor_pago_confirmado, 0);
+  assert.equal(ato.pagamentos_lancados, 0);
+  assert.equal(ato.pagamentos_confirmados, 0);
+  assert.equal(ato.tem_pagamento_pendente_confirmacao, false);
+  assert.equal(ato.status_calculado, 'pendente');
+  assert.equal(ato.status, 'pendente');
+  assert.deepEqual(ato.pagamentos, []);
+});

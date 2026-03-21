@@ -183,7 +183,7 @@ function enrichAtoFinance(ato) {
   const pagamentos = Array.isArray(ato.pagamentos) && ato.pagamentos.length
     ? ato.pagamentos
     : (
-      toNumber(ato.valor_pago) > 0 || ato.data_pagamento || ato.forma_pagamento
+      toNumber(ato.valor_pago) > 0
         ? [{
             valor: ato.valor_pago,
             data_pagamento: ato.data_pagamento,
