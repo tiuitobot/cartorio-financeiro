@@ -17,6 +17,63 @@ const TODAS_COLUNAS = [
   { key: 'pago', label: 'Pago' },
   { key: 'status', label: 'Status' },
 ];
+const STATUS_OPTIONS = [
+  { value: '', label: 'Todos' },
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'pago', label: 'Pago' },
+  { value: 'pago_menor', label: 'Pago a menor' },
+  { value: 'pago_maior', label: 'Pago a maior' },
+];
+const CONFERENCIA_OPTIONS = [
+  { value: '', label: 'Todas' },
+  { value: 'confirmado', label: 'Conferido' },
+  { value: 'nao_confirmado', label: 'Não conferido' },
+];
+
+function FilterChip({ active, children, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        border: active ? '1px solid #1d4ed8' : '1px solid #dbe4f0',
+        background: active ? '#dbeafe' : '#fff',
+        color: active ? '#1d4ed8' : '#475569',
+        borderRadius: 999,
+        padding: '8px 12px',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        transition: 'all .15s ease',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ActiveFilterTag({ label, onRemove }) {
+  return (
+    <button
+      onClick={onRemove}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        border: '1px solid #bfdbfe',
+        background: '#eff6ff',
+        color: '#1d4ed8',
+        borderRadius: 999,
+        padding: '6px 10px',
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: 'pointer',
+      }}
+    >
+      <span>{label}</span>
+      <span style={{ fontSize: 11 }}>✕</span>
+    </button>
+  );
+}
 
 export default function Atos({
   atos, escreventes, reivindicacoes, userRole, userId,
@@ -24,6 +81,7 @@ export default function Atos({
   busca, onBusca, userStorageKey,
 }) {
   const storageKey = `colunas_livros_${userStorageKey || 'anon'}`;
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showColPanel, setShowColPanel] = useState(false);
   const [fCaptador, setFCaptador] = useState('');
   const [fEnvolvido, setFEnvolvido] = useState('');
@@ -58,6 +116,8 @@ export default function Atos({
   const hasFiltrosAtivos = Boolean(
     busca || fCaptador || fEnvolvido || fStatus || fConfirmacao || fInicio || fFim || fValorMin || fValorMax
   );
+  const captadorNome = escreventes.find((item) => item.id === Number.parseInt(fCaptador, 10))?.nome;
+  const envolvidoNome = escreventes.find((item) => item.id === Number.parseInt(fEnvolvido, 10))?.nome;
 
   const atosListados = useMemo(() => {
     return atos.filter((ato) => {
@@ -92,6 +152,18 @@ export default function Atos({
     setFValorMax('');
     onBusca('');
   };
+
+  const activeFilters = [
+    busca ? { key: 'busca', label: `Busca: ${busca}`, onRemove: () => onBusca('') } : null,
+    fStatus ? { key: 'status', label: `Status: ${STATUS_OPTIONS.find((item) => item.value === fStatus)?.label}`, onRemove: () => setFStatus('') } : null,
+    fConfirmacao ? { key: 'confirmacao', label: `Conferência: ${CONFERENCIA_OPTIONS.find((item) => item.value === fConfirmacao)?.label}`, onRemove: () => setFConfirmacao('') } : null,
+    fCaptador ? { key: 'captador', label: `Captador: ${captadorNome || fCaptador}`, onRemove: () => setFCaptador('') } : null,
+    fEnvolvido ? { key: 'envolvido', label: `Envolvido: ${envolvidoNome || fEnvolvido}`, onRemove: () => setFEnvolvido('') } : null,
+    fInicio ? { key: 'inicio', label: `De: ${fInicio}`, onRemove: () => setFInicio('') } : null,
+    fFim ? { key: 'fim', label: `Até: ${fFim}`, onRemove: () => setFFim('') } : null,
+    fValorMin ? { key: 'valor_min', label: `Mínimo: ${fmt(Number(fValorMin || 0))}`, onRemove: () => setFValorMin('') } : null,
+    fValorMax ? { key: 'valor_max', label: `Máximo: ${fmt(Number(fValorMax || 0))}`, onRemove: () => setFValorMax('') } : null,
+  ].filter(Boolean);
 
   const renderCell = (ato, key) => {
     const capt = escreventes.find((item) => item.id === ato.captador_id);
@@ -180,72 +252,91 @@ export default function Atos({
         </Card>
       )}
 
-      <Card style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <Card style={{ marginBottom: 18, padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Filtros e Colunas</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-              Refine a listagem por situação financeira, envolvidos, período e faixa de valor.
+              Use filtros rápidos para operação diária e abra os filtros avançados só quando precisar.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Btn variant="secondary" onClick={() => setShowAdvancedFilters((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>
+              {showAdvancedFilters ? 'Fechar filtros' : 'Mais filtros'}
+            </Btn>
             <Btn variant="secondary" onClick={() => setShowColPanel((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>
               ⚙️ Colunas ({selectedCols.length})
             </Btn>
-            {selectedCols.length !== TODAS_COLUNAS.length && (
-              <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ padding: '9px 12px', fontSize: 12 }}>
-                Ver todas as colunas
-              </Btn>
-            )}
             {hasFiltrosAtivos && (
               <Btn variant="secondary" onClick={resetFiltros} style={{ padding: '9px 12px', fontSize: 12 }}>
-                Limpar filtros
+                Limpar tudo
               </Btn>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 12 }}>
-          <FInput label="Busca" placeholder="Controle ou L42P15..." value={busca} onChange={e => onBusca(e.target.value)} />
-          <FSel
-            label="Status"
-            options={[
-              { value: '', label: 'Todos' },
-              { value: 'pendente', label: 'Pendente' },
-              { value: 'pago', label: 'Pago' },
-              { value: 'pago_menor', label: 'Pago a menor' },
-              { value: 'pago_maior', label: 'Pago a maior' },
-            ]}
-            value={fStatus}
-            onChange={(e) => setFStatus(e.target.value)}
-          />
-          <FSel
-            label="Captador"
-            options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-            value={fCaptador}
-            onChange={(e) => setFCaptador(e.target.value)}
-          />
-          <FSel
-            label="Escrevente envolvido"
-            options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-            value={fEnvolvido}
-            onChange={(e) => setFEnvolvido(e.target.value)}
-          />
-          <FSel
-            label="Conferência financeira"
-            options={[
-              { value: '', label: 'Todas' },
-              { value: 'confirmado', label: 'Conferido' },
-              { value: 'nao_confirmado', label: 'Não conferido' },
-            ]}
-            value={fConfirmacao}
-            onChange={(e) => setFConfirmacao(e.target.value)}
-          />
-          <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
-          <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
-          <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
-          <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.4fr) minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
+          <div>
+            <FInput label="Buscar ato" placeholder="Controle ou L42P15..." value={busca} onChange={e => onBusca(e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Status</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {STATUS_OPTIONS.map((option) => (
+                  <FilterChip key={option.value || 'todos'} active={fStatus === option.value} onClick={() => setFStatus(option.value)}>
+                    {option.label}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Conferência Financeira</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {CONFERENCIA_OPTIONS.map((option) => (
+                  <FilterChip key={option.value || 'todas'} active={fConfirmacao === option.value} onClick={() => setFConfirmacao(option.value)}>
+                    {option.label}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
+
+        {activeFilters.length > 0 && (
+          <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7 }}>Filtros ativos</div>
+            {activeFilters.map((filter) => (
+              <ActiveFilterTag key={filter.key} label={filter.label} onRemove={filter.onRemove} />
+            ))}
+          </div>
+        )}
+
+        {showAdvancedFilters && (
+          <div style={{ marginTop: 16, borderTop: '1px solid #e8edf5', paddingTop: 16 }}>
+            <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 12, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              Filtros avançados
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 12 }}>
+              <FSel
+                label="Captador"
+                options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+                value={fCaptador}
+                onChange={(e) => setFCaptador(e.target.value)}
+              />
+              <FSel
+                label="Escrevente envolvido"
+                options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+                value={fEnvolvido}
+                onChange={(e) => setFEnvolvido(e.target.value)}
+              />
+              <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
+              <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
+              <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
+              <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
+            </div>
+          </div>
+        )}
 
         {showColPanel && (
           <div style={{ marginTop: 16, borderTop: '1px solid #e8edf5', paddingTop: 16 }}>
@@ -254,7 +345,7 @@ export default function Atos({
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
               {TODAS_COLUNAS.map((coluna) => (
-                <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px', background: selectedCols.includes(coluna.key) ? '#f8fbff' : '#fff' }}>
                   <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
                   {coluna.label}
                 </label>
