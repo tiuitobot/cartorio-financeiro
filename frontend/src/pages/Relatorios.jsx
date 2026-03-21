@@ -48,6 +48,10 @@ function origemLabel(origem) {
   return origem === 'escrevente' ? 'Escrevente' : 'Automática';
 }
 
+function uniqueIds(values = []) {
+  return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
+}
+
 const TH = ({ c }) => <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#475569', fontSize: 12, textTransform: 'uppercase', whiteSpace: 'nowrap', background: '#f1f5f9' }}>{c}</th>;
 const TD = ({ c, bold, color }) => <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontWeight: bold ? 700 : 400, color: color || '#1e293b' }}>{c}</td>;
 
@@ -90,6 +94,14 @@ export default function Relatorios({
   const [pFim, setPFim] = useState('');
   const [pStatus, setPStatus] = useState('abertas');
   const [modalReembolso, setModalReembolso] = useState(null);
+  const escreventesById = useMemo(
+    () => new Map(escreventes.map((item) => [item.id, item])),
+    [escreventes]
+  );
+  const atosById = useMemo(
+    () => new Map(atos.map((item) => [item.id, item])),
+    [atos]
+  );
 
   const tabs = [
     { key: 'atos', label: '📋 Atos' },
@@ -193,6 +205,26 @@ export default function Relatorios({
     return { ...escrevente, lancado, pago, saldo: lancado - pago };
   }).filter((item) => item.lancado > 0 || item.pago > 0);
 
+  const getPendenciaEscreventeIds = (item) => {
+    const ato = item.ato_id ? atosById.get(item.ato_id) : null;
+    return uniqueIds([
+      item.escrevente_id ?? null,
+      ato?.captador_id ?? null,
+      ato?.executor_id ?? null,
+      ato?.signatario_id ?? null,
+    ]);
+  };
+
+  const getPendenciaEscreventeLabel = (item) => {
+    const nomes = [];
+    if (item.escrevente_nome) nomes.push(item.escrevente_nome);
+    for (const escreventeId of getPendenciaEscreventeIds(item)) {
+      const nome = escreventesById.get(escreventeId)?.nome;
+      if (nome && !nomes.includes(nome)) nomes.push(nome);
+    }
+    return nomes.length > 0 ? nomes.join(', ') : '—';
+  };
+
   const pendenciasFiltradas = useMemo(() => {
     return [...pendencias]
       .filter((item) => {
@@ -201,7 +233,10 @@ export default function Relatorios({
           if (pStatus === 'solucionadas' && !item.solucionado) return false;
         }
         if (pTipo && item.tipo !== pTipo) return false;
-        if (pEscrevente && item.escrevente_id !== Number.parseInt(pEscrevente, 10)) return false;
+        if (pEscrevente) {
+          const filtroId = Number.parseInt(pEscrevente, 10);
+          if (!getPendenciaEscreventeIds(item).includes(filtroId)) return false;
+        }
         if (pControle) {
           const term = String(pControle).replace(/\D/g, '');
           const controleAtual = String(item.controle || '').replace(/\D/g, '');
@@ -217,7 +252,7 @@ export default function Relatorios({
         if (a.solucionado) return String(b.solucionado_em || '').localeCompare(String(a.solucionado_em || ''));
         return String(a.criado_em || '').localeCompare(String(b.criado_em || ''));
       });
-  }, [pendencias, pStatus, pTipo, pEscrevente, pControle, pInicio, pFim]);
+  }, [pendencias, pStatus, pTipo, pEscrevente, pControle, pInicio, pFim, atosById, escreventesById]);
 
   const captadorNome = escreventes.find((item) => item.id === Number.parseInt(fCaptador, 10))?.nome;
   const hasAtosFilters = Boolean(fStatus || fCaptador || fInicio || fFim || fBusca);
@@ -912,7 +947,7 @@ export default function Relatorios({
                             </div>
                           )}
                         </td>
-                        <TD c={item.escrevente_nome || '—'} />
+                        <TD c={getPendenciaEscreventeLabel(item)} />
                         <TD c={origemLabel(item.origem)} />
                         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                           <Badge label={item.solucionado ? 'Solucionada' : 'Aberta'} color={item.solucionado ? '#16a34a' : '#dc2626'} />

@@ -68,8 +68,14 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     if (escrevente_id) {
-      where.push(`p.escrevente_id = $${i++}`);
+      where.push(`(
+        p.escrevente_id = $${i}
+        OR a.captador_id = $${i}
+        OR a.executor_id = $${i}
+        OR a.signatario_id = $${i}
+      )`);
       params.push(Number.parseInt(escrevente_id, 10));
+      i += 1;
     }
 
     if (controle) {
