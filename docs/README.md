@@ -58,6 +58,9 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [17-backlog-especificacao-v2.md](/home/linuxadmin/repos/cartorio-financeiro/docs/17-backlog-especificacao-v2.md)
   Backlog priorizado em `P1`, `P2` e `P3`, com impacto tecnico, dependencias e ordem recomendada de implementacao.
 
+- [18-checkpoint-financeiro-legado.md](/home/linuxadmin/repos/cartorio-financeiro/docs/18-checkpoint-financeiro-legado.md)
+  Checkpoint da frente financeira em homologacao, com diagnostico do legado de pagamentos, migration de saneamento e validacao dos casos `00286` e `00999`.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.

@@ -1,6 +1,6 @@
 # Handoff - Status Atual
 
-Data de referencia: 19/03/2026.
+Data de referencia: 21/03/2026.
 
 ## Resumo do que foi feito
 
@@ -74,6 +74,12 @@ Foram feitos os seguintes ajustes:
 - gerador de lote `.xlsx` controlado para homologacao
 - bootstrap de sistema vazio via UI, com criacao automatica de escreventes faltantes
 - cancelamento de lote em preview e exclusao de lotes passados com rollback dos atos importados
+- modo dedicado de conferencia financeira em `Livros de Notas`
+- badges e filtros especificos para estados de conferencia financeira
+- separacao explicita entre valor lancado e valor confirmado no frontend
+- saneamento do legado de pagamentos para impedir pseudo-pagamentos quando `valor_pago = 0`
+- migration de normalizacao dos campos legados de pagamento
+- utilitario de reparo remoto via API para corrigir metadata legada sem acesso direto ao banco
 
 ## O que esta pronto
 
@@ -104,6 +110,11 @@ Foram feitos os seguintes ajustes:
 - documentacao do ambiente Railway de homologacao
 - script para gerar lote `.xlsx` de homologacao sem depender da planilha real
 - importacao opcional com criacao automatica de escreventes e taxa padrao configuravel
+- base da frente financeira do `P2`, ainda em evolucao, com:
+  - `pagamentos_ato`
+  - conferencia financeira separada por lancamento
+  - coluna financeira diferenciando `Lan` e `Conf`
+  - modo dedicado de conferencia no modal/listagem
 
 ### Pronto em nivel de conceito
 
@@ -124,10 +135,11 @@ Foram feitos os seguintes ajustes:
 
 - troca obrigatoria de senha no primeiro login
 - revisao de exposicao de dados sensiveis
-- endurecimento do modelo de auditoria
+- endurecimento restante do modelo de auditoria
 - execucao ponta a ponta com banco real neste ambiente
 - definicao final de `executor_id` e `signatario_id` na importacao da planilha
 - lote real de homologacao com nomes reais do cartorio
+- fechamento completo do bloco financeiro do `P2` antes de seguir para historico de taxas
 
 ## Pendencias prioritarias
 
@@ -145,6 +157,7 @@ Foram feitos os seguintes ajustes:
 3. revisar a estrategia de unicidade parcial e limpar placeholders antigos
 4. validar migrations em banco real e automatizar o apply no deploy
 5. homologar a inferencia provisoria de pagamento da planilha
+6. validar em producao o saneamento do legado financeiro antes de continuar o `P2`
 
 ### Aplicacao
 
@@ -176,7 +189,8 @@ Foram feitos os seguintes ajustes:
 - o deploy real ainda pode exigir ajuste fino de build
 - a migration de unicidade pode falhar em bases legadas com duplicidade valida
 - os documentos de infra ainda sao guias, nao automacao completa
-- a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para pagamento, executor e signatario
+- a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para regras finais de pagamento, executor e signatario
+- a frente financeira do `P2` mexe em dominio sensivel e exige confirmacao funcional do Henrique a cada rodada
 
 ## Arquivos-chave para continuidade
 
@@ -208,9 +222,12 @@ Foram feitos os seguintes ajustes:
 - [backend/db/migrations/0002_atos_constraints_and_server_stamps.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0002_atos_constraints_and_server_stamps.sql)
 - [backend/db/migrations/0003_import_lotes_preview.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0003_import_lotes_preview.sql)
 - [backend/db/migrations/0004_atos_importacao_planilha.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0004_atos_importacao_planilha.sql)
+- [backend/db/migrations/0010_normalize_legacy_payment_fields.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0010_normalize_legacy_payment_fields.sql)
 - [backend/scripts/run-migrations.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/run-migrations.js)
 - [backend/scripts/create-admin.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/create-admin.js)
+- [scripts/repair-legacy-payment-metadata-via-api.mjs](/home/linuxadmin/repos/cartorio-financeiro/scripts/repair-legacy-payment-metadata-via-api.mjs)
 - [backend/lib/finance.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/finance.js)
+- [backend/lib/pagamentos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/pagamentos.js)
 - [backend/lib/audit.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/audit.js)
 - [backend/lib/list-scopes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/list-scopes.js)
 - [backend/lib/controle-diario-import.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/controle-diario-import.js)
@@ -224,6 +241,8 @@ Foram feitos os seguintes ajustes:
 - [backend/tests/list-scopes.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/list-scopes.test.js)
 - [frontend/src/App.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/App.jsx)
 - [frontend/src/api.js](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/api.js)
+- [frontend/src/pages/Atos.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/pages/Atos.jsx)
+- [frontend/src/components/modals/ModalAto.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/components/modals/ModalAto.jsx)
 
 ## Proximo passo recomendado
 
@@ -232,9 +251,10 @@ Ordem recomendada:
 1. validar o fluxo nativo em [docs/09-infra-local-postgres.md](/home/linuxadmin/repos/cartorio-financeiro/docs/09-infra-local-postgres.md)
 2. confirmar em ambiente com banco real o cleanup do frontend e liberar remocao de `utils/business.js`
 3. validar `docker compose up --build` em ambiente com Docker disponivel
-4. preparar o primeiro deploy real no Railway
+4. fechar a rodada atual da frente financeira em producao
 5. homologar com o usuario do cartorio
-6. so depois comecar a automacao de migracao para GCP
+6. continuar o `P2` com historico de taxas
+7. so depois comecar a automacao de migracao para GCP
 
 ## Criterio de aceite minimo antes de deploy real
 
