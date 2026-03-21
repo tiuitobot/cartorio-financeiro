@@ -67,6 +67,9 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [20-p2-homologacao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/20-p2-homologacao.md)
   Estado do `P2` validado na homologacao, com escopo coberto, correcao de historico de taxas e resultado da validacao de backend e UI.
 
+- [21-pendencias-producao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/21-pendencias-producao.md)
+  Checkpoint da promocao do modulo de pendencias para producao, com regra final de reabertura, atalho de conferencia e validacao funcional.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.

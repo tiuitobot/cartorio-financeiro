@@ -85,6 +85,19 @@ Foram feitos os seguintes ajustes:
 - baseline historica retroativa de taxa em `1900-01-01` para corrigir comissao de atos anteriores a mudancas de vigencia
 - migration de backfill de baseline de taxas para escreventes ja existentes
 - validacao de `P2` na homologacao com browser e API, incluindo cenarios reais de comissao historica
+- promocao do `P2` para producao com checkpoint versionado
+- modulo `Pendencias` implementado com:
+  - geracao automatica
+  - manifestacao manual do escrevente
+  - filtros por tipo, escrevente, controle e periodo
+  - solve / reopen / hide
+  - integracao com conferencia financeira e reembolsos
+- correcao do filtro por escrevente em `Relatorios > Pendencias`
+- regra final de reabertura:
+  - pendencia manual pode reabrir
+  - pendencia automatica deve ser reaberta na origem do problema
+- atalho `Abrir conferencia` nas pendencias automaticas de confirmacao financeira
+- validacao do modulo de pendencias em browser e API antes da promocao para producao
 
 ## O que esta pronto
 
@@ -128,6 +141,13 @@ Foram feitos os seguintes ajustes:
   - diff automatico em correcoes
   - historico de taxas com vigencia
   - comissoes detalhadas por escrevente
+- `P2` promovido para producao
+- modulo `Pendencias` promovido para producao com:
+  - listagem operacional em `Relatorios`
+  - manifestacao manual do escrevente
+  - filtros e escopo por perfil
+  - solve / reopen / hide
+  - regra de reabertura coerente com a origem da pendencia
 
 ### Pronto em nivel de conceito
 
@@ -152,7 +172,8 @@ Foram feitos os seguintes ajustes:
 - execucao ponta a ponta com banco real neste ambiente
 - definicao final de `executor_id` e `signatario_id` na importacao da planilha
 - lote real de homologacao com nomes reais do cartorio
-- promocao do `P2` da homologacao para producao apos validacao final do Henrique
+- persistencia de preferencias de colunas no banco
+- modulo de `auxiliar_registro` e `despesas_registro`
 
 ## Pendencias prioritarias
 
@@ -170,8 +191,8 @@ Foram feitos os seguintes ajustes:
 3. revisar a estrategia de unicidade parcial e limpar placeholders antigos
 4. validar migrations em banco real e automatizar o apply no deploy
 5. homologar a inferencia provisoria de pagamento da planilha
-6. validar em producao o saneamento do legado financeiro antes de continuar o `P2`
-7. limpar artefatos temporarios de QA na homologacao ou criar utilitario administrativo para isso
+6. criar utilitario administrativo seguro para limpeza de artefatos de QA em homologacao
+7. modelar `despesas_registro` sem poluir `atos`
 
 ### Aplicacao
 
@@ -205,7 +226,7 @@ Foram feitos os seguintes ajustes:
 - os documentos de infra ainda sao guias, nao automacao completa
 - a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para regras finais de pagamento, executor e signatario
 - a frente financeira do `P2` mexe em dominio sensivel e exige confirmacao funcional do Henrique a cada rodada
-- a frente de historico de taxas ja foi validada tecnicamente em homologacao, mas ainda exige aceite funcional antes de promover
+- o modulo de pendencias foi promovido para producao, mas ainda pode sofrer ajuste fino de nomenclatura e UX apos uso real do cartorio
 
 ## Arquivos-chave para continuidade
 
