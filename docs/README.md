@@ -61,6 +61,9 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [18-checkpoint-financeiro-legado.md](/home/linuxadmin/repos/cartorio-financeiro/docs/18-checkpoint-financeiro-legado.md)
   Checkpoint da frente financeira em homologacao, com diagnostico do legado de pagamentos, migration de saneamento e validacao dos casos `00286` e `00999`.
 
+- [19-adr-ui-template-reutilizavel.md](/home/linuxadmin/repos/cartorio-financeiro/docs/19-adr-ui-template-reutilizavel.md)
+  ADR que formaliza o template unico de UI e a obrigatoriedade de extrair componentes/padroes reutilizaveis para novas telas e refactors retroativos.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.

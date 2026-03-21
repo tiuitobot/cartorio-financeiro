@@ -36,6 +36,7 @@ async function main() {
         reivindicacoes,
         atos,
         usuarios,
+        escreventes_taxas_historico,
         escreventes_compartilhamento,
         escreventes
       RESTART IDENTITY CASCADE

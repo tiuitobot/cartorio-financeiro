@@ -146,11 +146,11 @@ function mapAtoRows(rows) {
 const ATO_SELECT = `
   SELECT a.*,
     cap.nome  AS captador_nome,
-    cap.taxa  AS captador_taxa,
+    COALESCE(cap_taxa_hist.taxa, cap.taxa)  AS captador_taxa,
     exe.nome  AS executor_nome,
-    exe.taxa  AS executor_taxa,
+    COALESCE(exe_taxa_hist.taxa, exe.taxa)  AS executor_taxa,
     sig.nome  AS signatario_nome,
-    sig.taxa  AS signatario_taxa,
+    COALESCE(sig_taxa_hist.taxa, sig.taxa)  AS signatario_taxa,
     re.nome   AS escrevente_reembolso_nome,
     COALESCE((
       SELECT json_agg(row_to_json(corr) ORDER BY corr.created_at, corr.id)
@@ -181,8 +181,32 @@ const ATO_SELECT = `
     ), '[]'::json) AS pagamentos
   FROM atos a
   LEFT JOIN escreventes cap ON a.captador_id = cap.id
+  LEFT JOIN LATERAL (
+    SELECT h.taxa
+      FROM escreventes_taxas_historico h
+     WHERE h.escrevente_id = a.captador_id
+       AND h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE)
+     ORDER BY h.vigencia_inicio DESC, h.id DESC
+     LIMIT 1
+  ) cap_taxa_hist ON TRUE
   LEFT JOIN escreventes exe ON a.executor_id = exe.id
+  LEFT JOIN LATERAL (
+    SELECT h.taxa
+      FROM escreventes_taxas_historico h
+     WHERE h.escrevente_id = a.executor_id
+       AND h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE)
+     ORDER BY h.vigencia_inicio DESC, h.id DESC
+     LIMIT 1
+  ) exe_taxa_hist ON TRUE
   LEFT JOIN escreventes sig ON a.signatario_id = sig.id
+  LEFT JOIN LATERAL (
+    SELECT h.taxa
+      FROM escreventes_taxas_historico h
+     WHERE h.escrevente_id = a.signatario_id
+       AND h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE)
+     ORDER BY h.vigencia_inicio DESC, h.id DESC
+     LIMIT 1
+  ) sig_taxa_hist ON TRUE
   LEFT JOIN escreventes re  ON a.escrevente_reembolso_id = re.id
 `;
 

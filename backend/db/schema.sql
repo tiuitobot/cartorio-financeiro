@@ -19,6 +19,16 @@ CREATE TABLE IF NOT EXISTS escreventes_compartilhamento (
   PRIMARY KEY (escrevente_id, compartilha_com_id)
 );
 
+CREATE TABLE IF NOT EXISTS escreventes_taxas_historico (
+  id                 SERIAL PRIMARY KEY,
+  escrevente_id      INTEGER NOT NULL REFERENCES escreventes(id) ON DELETE CASCADE,
+  taxa               INTEGER NOT NULL CHECK (taxa IN (6, 20, 30)),
+  vigencia_inicio    DATE NOT NULL,
+  created_by_user_id INTEGER,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT ux_escreventes_taxas_historico UNIQUE (escrevente_id, vigencia_inicio)
+);
+
 CREATE TABLE IF NOT EXISTS atos (
   id                      SERIAL PRIMARY KEY,
   controle                VARCHAR(20) NOT NULL,
@@ -175,6 +185,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_atos_livro_pagina_validos
 CREATE INDEX IF NOT EXISTS idx_correcoes_ato       ON correcoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_pagamentos_ato_ato  ON pagamentos_ato(ato_id, data_pagamento, id);
 CREATE INDEX IF NOT EXISTS idx_pagamentos_ato_confirmacao ON pagamentos_ato(ato_id, confirmado_financeiro, confirmado_financeiro_em);
+CREATE INDEX IF NOT EXISTS idx_escreventes_taxas_historico_lookup
+  ON escreventes_taxas_historico(escrevente_id, vigencia_inicio DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_reiv_ato            ON reivindicacoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_reiv_escrevente     ON reivindicacoes(escrevente_id);
 CREATE INDEX IF NOT EXISTS idx_import_lotes_created_at ON import_lotes(created_at DESC);

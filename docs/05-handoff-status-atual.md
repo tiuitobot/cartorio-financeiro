@@ -80,6 +80,8 @@ Foram feitos os seguintes ajustes:
 - saneamento do legado de pagamentos para impedir pseudo-pagamentos quando `valor_pago = 0`
 - migration de normalizacao dos campos legados de pagamento
 - utilitario de reparo remoto via API para corrigir metadata legada sem acesso direto ao banco
+- ADR de UI reutilizavel com template unico para filtros, sheets, drilldowns e tabelas
+- inicio do `P2` com historico de taxas por vigencia e detalhamento de comissoes por escrevente
 
 ## O que esta pronto
 
@@ -115,6 +117,8 @@ Foram feitos os seguintes ajustes:
   - conferencia financeira separada por lancamento
   - coluna financeira diferenciando `Lan` e `Conf`
   - modo dedicado de conferencia no modal/listagem
+- base de historico de taxas com vigencia em `escreventes`
+- detalhe de comissoes por escrevente em `Relatórios > Comissões`
 
 ### Pronto em nivel de conceito
 
@@ -140,6 +144,7 @@ Foram feitos os seguintes ajustes:
 - definicao final de `executor_id` e `signatario_id` na importacao da planilha
 - lote real de homologacao com nomes reais do cartorio
 - fechamento completo do bloco financeiro do `P2` antes de seguir para historico de taxas
+- validacao funcional da vigencia de taxa na homologacao antes de promover para producao
 
 ## Pendencias prioritarias
 
@@ -191,6 +196,7 @@ Foram feitos os seguintes ajustes:
 - os documentos de infra ainda sao guias, nao automacao completa
 - a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para regras finais de pagamento, executor e signatario
 - a frente financeira do `P2` mexe em dominio sensivel e exige confirmacao funcional do Henrique a cada rodada
+- a frente de historico de taxas tambem exige confirmacao funcional porque altera relatorios historicos
 
 ## Arquivos-chave para continuidade
 

@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { FInput, Btn } from '../ui/index.jsx';
 
 export default function ModalEscrevente({ init, onClose, onSave, todosEscreventes }) {
-  const [form, setForm] = useState({ ...init });
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ taxa_vigencia_inicio: init?.taxa_vigencia_inicio || today, ...init });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const outros = todosEscreventes.filter(e => e.id !== init.id);
+  const historicoTaxas = Array.isArray(init.taxas_historico) ? init.taxas_historico : [];
+  const taxaMudou = !!init.id && Number(form.taxa) !== Number(init.taxa);
 
   const toggleCompartilhar = (id) => {
     const atual = form.compartilhar_com || [];
@@ -47,7 +50,52 @@ export default function ModalEscrevente({ init, onClose, onSave, todosEscrevente
               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>Os escreventes selecionados poderão visualizar seus atos.</div>
             </div>
           )}
-          {!!init.id && <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#92400e' }}>⚠️ A vigência histórica de taxa ainda não está implementada. Revise relatórios de comissão após qualquer alteração.</div>}
+          {!!init.id && (
+            <>
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '12px 14px', display: 'grid', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.7 }}>Taxa com vigência</div>
+                  <div style={{ fontSize: 13, color: '#334155', marginTop: 4 }}>
+                    Mudanças de taxa entram no histórico e passam a valer a partir da data escolhida.
+                  </div>
+                </div>
+                <FInput
+                  label="Vigência da taxa selecionada"
+                  type="date"
+                  value={form.taxa_vigencia_inicio || today}
+                  onChange={(e) => set('taxa_vigencia_inicio', e.target.value)}
+                />
+                {taxaMudou && (
+                  <div style={{ fontSize: 12, color: '#1e3a5f', fontWeight: 700 }}>
+                    A nova taxa de {form.taxa}% será registrada com vigência em {form.taxa_vigencia_inicio || today}.
+                  </div>
+                )}
+              </div>
+
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>
+                  Histórico de taxas
+                </div>
+                {historicoTaxas.length === 0 ? (
+                  <div style={{ fontSize: 13, color: '#94a3b8' }}>Nenhum histórico registrado ainda.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {historicoTaxas.map((item) => (
+                      <div key={`${item.id}-${item.vigencia_inicio}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{item.taxa}%</div>
+                          <div style={{ fontSize: 12, color: '#64748b' }}>Vigência em {item.vigencia_inicio}</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'right' }}>
+                          {item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '—'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Btn variant="secondary" onClick={onClose}>Cancelar</Btn>
             <Btn onClick={() => { if (form.nome?.trim()) onSave(form); }}>💾 Salvar</Btn>

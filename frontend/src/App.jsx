@@ -333,7 +333,7 @@ export default function App() {
               <button onClick={() => setModalDeclaro(true)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>📝 Declaro Participação</button>
             )}
             {view === 'escreventes' && userRole === 'admin' && (
-              <button onClick={() => setModalEscrevente({ nome: '', taxa: 6, cargo: '', email: '', compartilhar_com: [] })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
+              <button onClick={() => setModalEscrevente({ nome: '', taxa: 6, cargo: '', email: '', compartilhar_com: [], taxas_historico: [], taxa_vigencia_inicio: new Date().toISOString().slice(0, 10) })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
             )}
           </div>
         </div>

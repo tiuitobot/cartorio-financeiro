@@ -259,6 +259,7 @@ async function main() {
         reivindicacoes,
         atos,
         usuarios,
+        escreventes_taxas_historico,
         escreventes_compartilhamento,
         escreventes
       RESTART IDENTITY CASCADE
@@ -269,6 +270,11 @@ async function main() {
         `INSERT INTO escreventes(id,nome,cargo,email,taxa,ativo)
          VALUES($1,$2,$3,$4,$5,$6)`,
         [item.id, item.nome, item.cargo, item.email, item.taxa, item.ativo]
+      );
+      await client.query(
+        `INSERT INTO escreventes_taxas_historico(escrevente_id,taxa,vigencia_inicio,created_at)
+         VALUES($1,$2,$3,NOW())`,
+        [item.id, item.taxa, '1900-01-01']
       );
     }
 
@@ -363,6 +369,7 @@ async function main() {
     }
 
     await resetSequence(client, 'escreventes');
+    await resetSequence(client, 'escreventes_taxas_historico');
     await resetSequence(client, 'usuarios');
     await resetSequence(client, 'atos');
     await resetSequence(client, 'correcoes');

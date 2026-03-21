@@ -36,6 +36,7 @@ export default function Relatorios({
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showMensalPanel, setShowMensalPanel] = useState(false);
   const [showComPanel, setShowComPanel] = useState(false);
+  const [selectedComDetalheId, setSelectedComDetalheId] = useState(null);
   const [fStatus, setFStatus] = useState('');
   const [fCaptador, setFCaptador] = useState('');
   const [fInicio, setFInicio] = useState('');
@@ -112,12 +113,36 @@ export default function Relatorios({
     }, 0);
 
     return {
+      id: escrevente.id,
       nome: escrevente.nome,
       qtdAtos: atosPraticados.length,
       emolumentos: totalEmolumentos,
       comissoes: totalComissao,
     };
   }).filter((item) => item.qtdAtos > 0 || item.comissoes > 0), [atos, escFiltrados, comInicio, comFim]);
+  const escreventeDetalhe = escreventes.find((item) => item.id === selectedComDetalheId) || null;
+  const dadosComDetalhe = useMemo(() => {
+    if (!selectedComDetalheId) return [];
+
+    return atos
+      .filter((ato) => (!comInicio || ato.data_ato >= comInicio) && (!comFim || ato.data_ato <= comFim))
+      .flatMap((ato) => (ato.comissoes || [])
+        .filter((comissao) => comissao.escrevente_id === selectedComDetalheId)
+        .map((comissao) => ({
+          ato_id: ato.id,
+          controle: ato.controle,
+          livro: ato.livro,
+          pagina: ato.pagina,
+          data_ato: ato.data_ato,
+          tipo_ato: ato.tipo_ato,
+          emolumentos: ato.emolumentos,
+          papel: comissao.papel,
+          pct: comissao.pct,
+          fixo: comissao.fixo,
+          total: comissao.total,
+        })))
+      .sort((a, b) => String(b.data_ato || '').localeCompare(String(a.data_ato || '')) || String(b.controle || '').localeCompare(String(a.controle || '')));
+  }, [atos, comFim, comInicio, selectedComDetalheId]);
 
   const dadosRembEsc = escreventes.map((escrevente) => {
     const lancado = atos.filter((ato) => ato.escrevente_reembolso_id === escrevente.id).reduce((sum, ato) => sum + ato.reembolso_devido_escrevente, 0);
@@ -546,15 +571,20 @@ export default function Relatorios({
 
           <Card style={{ padding: 0, overflow: 'hidden' }}>
             <StickyXScroll>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 820 }}>
-                <thead><tr style={{ background: '#f1f5f9' }}>{['Escrevente', 'Atos Praticados', 'Total Emolumentos', 'Total Comissão'].map((header) => <TH key={header} c={header} />)}</tr></thead>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 940 }}>
+                <thead><tr style={{ background: '#f1f5f9' }}>{['Escrevente', 'Atos Praticados', 'Total Emolumentos', 'Total Comissão', ''].map((header) => <TH key={header} c={header} />)}</tr></thead>
                 <tbody>
                   {dadosCom.map((item, index) => (
-                    <tr key={item.nome} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                    <tr key={item.id} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
                       <TD c={item.nome} bold />
                       <TD c={item.qtdAtos} />
                       <TD c={fmt(item.emolumentos)} bold />
                       <TD c={fmt(item.comissoes)} bold />
+                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                        <Btn variant="secondary" onClick={() => setSelectedComDetalheId(item.id)} style={{ fontSize: 12, padding: '6px 12px' }}>
+                          Detalhar
+                        </Btn>
+                      </td>
                     </tr>
                   ))}
                   {dadosCom.length > 0 && (
@@ -563,6 +593,7 @@ export default function Relatorios({
                       <TD c={dadosCom.reduce((sum, item) => sum + item.qtdAtos, 0)} bold />
                       <TD c={fmt(dadosCom.reduce((sum, item) => sum + item.emolumentos, 0))} bold />
                       <TD c={fmt(dadosCom.reduce((sum, item) => sum + item.comissoes, 0))} bold />
+                      <td style={{ padding: '10px 14px' }} />
                     </tr>
                   )}
                 </tbody>
@@ -570,6 +601,82 @@ export default function Relatorios({
             </StickyXScroll>
             {dadosCom.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Nenhum dado no período.</div>}
           </Card>
+
+          <Sheet
+            open={Boolean(selectedComDetalheId)}
+            title={escreventeDetalhe ? `Comissões de ${escreventeDetalhe.nome}` : 'Detalhe de comissões'}
+            subtitle="Detalhamento por ato no período filtrado, usando a taxa histórica vigente em cada data."
+            onClose={() => setSelectedComDetalheId(null)}
+            footer={(
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <Btn
+                  onClick={() => exportXLSX(
+                    dadosComDetalhe.map((item) => ({
+                      Data: item.data_ato,
+                      Controle: item.controle,
+                      Livro: item.livro,
+                      Página: item.pagina,
+                      Papel: item.papel,
+                      'Percentual/Fixo': item.pct != null ? `${item.pct}%` : item.fixo,
+                      Comissão: item.total,
+                    })),
+                    'Detalhe Comissões',
+                    'detalhe_comissoes.xlsx'
+                  )}
+                  style={{ fontSize: 12, padding: '8px 12px' }}
+                >
+                  📥 Excel
+                </Btn>
+                <Btn variant="secondary" onClick={() => setSelectedComDetalheId(null)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Fechar
+                </Btn>
+              </div>
+            )}
+          >
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+                {[
+                  { l: 'Atos', v: dadosComDetalhe.length },
+                  { l: 'Emolumentos base', v: fmt(dadosComDetalhe.reduce((sum, item) => sum + Number(item.emolumentos || 0), 0)) },
+                  { l: 'Comissão total', v: fmt(dadosComDetalhe.reduce((sum, item) => sum + Number(item.total || 0), 0)) },
+                ].map((metric) => (
+                  <div key={metric.l} style={{ border: '1px solid #dbe4f0', borderRadius: 14, background: '#fff', padding: '12px 14px' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{metric.l}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#1e3a5f', marginTop: 4 }}>{metric.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ border: '1px solid #dbe4f0', borderRadius: 18, overflow: 'hidden', background: '#fff' }}>
+                <StickyXScroll>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 860 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        {['Data', 'Controle', 'Referência', 'Papel', 'Base', 'Percentual/Fixo', 'Comissão'].map((header) => <TH key={header} c={header} />)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dadosComDetalhe.map((item, index) => (
+                        <tr key={`${item.ato_id}-${item.papel}-${index}`} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                          <TD c={fmtDate(item.data_ato)} />
+                          <TD c={padControle(item.controle)} bold />
+                          <TD c={`${item.livro}/${item.pagina}`} />
+                          <TD c={item.papel} />
+                          <TD c={fmt(item.emolumentos)} />
+                          <TD c={item.pct != null ? `${item.pct}%` : fmt(item.fixo)} />
+                          <TD c={fmt(item.total)} bold />
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </StickyXScroll>
+                {dadosComDetalhe.length === 0 && (
+                  <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
+                    Nenhuma comissão encontrada para este escrevente no período atual.
+                  </div>
+                )}
+              </div>
+            </div>
+          </Sheet>
         </div>
       )}
 
