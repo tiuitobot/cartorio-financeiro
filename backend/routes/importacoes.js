@@ -8,6 +8,7 @@ const {
   buildWorkbookPreview,
   normalizeKey,
 } = require('../lib/controle-diario-import');
+const { replacePagamentosAto } = require('../lib/pagamentos');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -550,6 +551,14 @@ async function importLote(loteId, actorUserId, options = {}) {
             notasImportacao.join('. '),
           ]
         );
+        if (valorPago > 0) {
+          await replacePagamentosAto(client, insertResult.rows[0].id, [{
+            valor: valorPago,
+            data_pagamento: normalized.data_pagamento,
+            forma_pagamento: normalized.forma_pagamento,
+            notas: 'Pagamento sintetizado da importação inicial',
+          }]);
+        }
         await client.query('RELEASE SAVEPOINT import_row');
         result.imported += 1;
         result.imported_ids.push(insertResult.rows[0].id);

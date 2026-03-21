@@ -75,6 +75,16 @@ export default function App() {
       : []
   ), []);
 
+  const normalizePagamentos = useCallback((pagamentos = []) => (
+    Array.isArray(pagamentos)
+      ? pagamentos.map((item) => ({
+          ...item,
+          valor: toMoneyNumber(item.valor),
+          forma_pagamento: normalizeFormaPagamento(item.forma_pagamento),
+        }))
+      : []
+  ), []);
+
   const normalizeAto = useCallback((ato) => ({
     ...ato,
     total: toMoneyNumber(ato.total),
@@ -86,8 +96,9 @@ export default function App() {
     valor_pago: toMoneyNumber(ato.valor_pago),
     reembolso_devido_escrevente: toMoneyNumber(ato.reembolso_devido_escrevente),
     forma_pagamento: normalizeFormaPagamento(ato.forma_pagamento),
+    pagamentos: normalizePagamentos(ato.pagamentos),
     comissoes: normalizeComissoes(ato.comissoes),
-  }), [normalizeComissoes]);
+  }), [normalizeComissoes, normalizePagamentos]);
 
   const normalizeReembolso = useCallback((pagamento) => ({
     ...pagamento,

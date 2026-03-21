@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS correcoes (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS pagamentos_ato (
+  id              SERIAL PRIMARY KEY,
+  ato_id          INTEGER NOT NULL REFERENCES atos(id) ON DELETE CASCADE,
+  valor           DECIMAL(12,2) NOT NULL,
+  data_pagamento  DATE,
+  forma_pagamento VARCHAR(50),
+  notas           TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT chk_pagamentos_ato_valor_positivo CHECK (valor > 0)
+);
+
 CREATE TABLE IF NOT EXISTS pagamentos_reembolso (
   id                   SERIAL PRIMARY KEY,
   escrevente_id        INTEGER REFERENCES escreventes(id),
@@ -158,6 +170,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_atos_livro_pagina_validos
   ON atos(livro, pagina)
   WHERE livro <> '0' AND pagina <> '0';
 CREATE INDEX IF NOT EXISTS idx_correcoes_ato       ON correcoes(ato_id);
+CREATE INDEX IF NOT EXISTS idx_pagamentos_ato_ato  ON pagamentos_ato(ato_id, data_pagamento, id);
 CREATE INDEX IF NOT EXISTS idx_reiv_ato            ON reivindicacoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_reiv_escrevente     ON reivindicacoes(escrevente_id);
 CREATE INDEX IF NOT EXISTS idx_import_lotes_created_at ON import_lotes(created_at DESC);
@@ -179,5 +192,8 @@ DO $$ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_import_lotes_updated_at') THEN
     CREATE TRIGGER trg_import_lotes_updated_at BEFORE UPDATE ON import_lotes FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_pagamentos_ato_updated_at') THEN
+    CREATE TRIGGER trg_pagamentos_ato_updated_at BEFORE UPDATE ON pagamentos_ato FOR EACH ROW EXECUTE FUNCTION set_updated_at();
   END IF;
 END $$;
