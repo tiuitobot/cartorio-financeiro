@@ -36,10 +36,11 @@ function FilterChip({ active, children, onClick }) {
       onClick={onClick}
       style={{
         border: active ? '1px solid #1d4ed8' : '1px solid #dbe4f0',
-        background: active ? '#dbeafe' : '#fff',
-        color: active ? '#1d4ed8' : '#475569',
+        background: active ? 'linear-gradient(135deg,#1d4ed8,#2563eb)' : '#fff',
+        color: active ? '#fff' : '#475569',
+        boxShadow: active ? '0 8px 18px #2563eb22' : 'none',
         borderRadius: 999,
-        padding: '8px 12px',
+        padding: '8px 14px',
         fontSize: 13,
         fontWeight: 700,
         cursor: 'pointer',
@@ -253,7 +254,7 @@ export default function Atos({
       )}
 
       <Card style={{ marginBottom: 18, padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Filtros e Colunas</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
@@ -275,13 +276,32 @@ export default function Atos({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.4fr) minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
-          <div>
-            <FInput label="Buscar ato" placeholder="Controle ou L42P15..." value={busca} onChange={e => onBusca(e.target.value)} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 1.25fr) minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>Busca principal</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #dbe4f0', borderRadius: 14, padding: '10px 14px', background: '#f8fbff' }}>
+              <span style={{ fontSize: 16, color: '#1d4ed8' }}>⌕</span>
+              <input
+                placeholder="Controle, L42P15 ou referência do ato..."
+                value={busca}
+                onChange={(e) => onBusca(e.target.value)}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: 14,
+                  color: '#1e293b',
+                }}
+              />
+            </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: '#64748b' }}>
+              {atosListados.length} resultado(s) com os filtros atuais.
+            </div>
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Status</div>
+            <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 14, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Status</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {STATUS_OPTIONS.map((option) => (
                   <FilterChip key={option.value || 'todos'} active={fStatus === option.value} onClick={() => setFStatus(option.value)}>
@@ -290,8 +310,8 @@ export default function Atos({
                 ))}
               </div>
             </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Conferência Financeira</div>
+            <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 14, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Conferência Financeira</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {CONFERENCIA_OPTIONS.map((option) => (
                   <FilterChip key={option.value || 'todas'} active={fConfirmacao === option.value} onClick={() => setFConfirmacao(option.value)}>
@@ -304,7 +324,7 @@ export default function Atos({
         </div>
 
         {activeFilters.length > 0 && (
-          <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingTop: 14, borderTop: '1px dashed #dbe4f0' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7 }}>Filtros ativos</div>
             {activeFilters.map((filter) => (
               <ActiveFilterTag key={filter.key} label={filter.label} onRemove={filter.onRemove} />
@@ -313,49 +333,53 @@ export default function Atos({
         )}
 
         {showAdvancedFilters && (
-          <div style={{ marginTop: 16, borderTop: '1px solid #e8edf5', paddingTop: 16 }}>
+          <div style={{ marginTop: 18, borderTop: '1px solid #e8edf5', paddingTop: 18 }}>
             <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 12, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6 }}>
               Filtros avançados
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 12 }}>
-              <FSel
-                label="Captador"
-                options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-                value={fCaptador}
-                onChange={(e) => setFCaptador(e.target.value)}
-              />
-              <FSel
-                label="Escrevente envolvido"
-                options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
-                value={fEnvolvido}
-                onChange={(e) => setFEnvolvido(e.target.value)}
-              />
-              <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
-              <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
-              <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
-              <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
+            <div style={{ background: 'linear-gradient(180deg,#f8fbff,#ffffff)', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 12 }}>
+                <FSel
+                  label="Captador"
+                  options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+                  value={fCaptador}
+                  onChange={(e) => setFCaptador(e.target.value)}
+                />
+                <FSel
+                  label="Escrevente envolvido"
+                  options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+                  value={fEnvolvido}
+                  onChange={(e) => setFEnvolvido(e.target.value)}
+                />
+                <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
+                <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
+                <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} />
+                <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} />
+              </div>
             </div>
           </div>
         )}
 
         {showColPanel && (
-          <div style={{ marginTop: 16, borderTop: '1px solid #e8edf5', paddingTop: 16 }}>
+          <div style={{ marginTop: 18, borderTop: '1px solid #e8edf5', paddingTop: 18 }}>
             <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 10, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6 }}>
               Selecionar colunas
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-              {TODAS_COLUNAS.map((coluna) => (
-                <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px', background: selectedCols.includes(coluna.key) ? '#f8fbff' : '#fff' }}>
-                  <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
-                  {coluna.label}
-                </label>
-              ))}
+            <div style={{ background: 'linear-gradient(180deg,#f8fbff,#ffffff)', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                {TODAS_COLUNAS.map((coluna) => (
+                  <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', border: selectedCols.includes(coluna.key) ? '1px solid #93c5fd' : '1px solid #e2e8f0', borderRadius: 12, padding: '10px 12px', background: selectedCols.includes(coluna.key) ? '#eff6ff' : '#fff', color: selectedCols.includes(coluna.key) ? '#1d4ed8' : '#334155', fontWeight: selectedCols.includes(coluna.key) ? 700 : 500 }}>
+                    <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
+                    {coluna.label}
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Todas</Btn>
+                <Btn variant="secondary" onClick={() => setSelectedCols(COLUNAS_PADRAO)} style={{ fontSize: 12, padding: '6px 12px' }}>Padrão</Btn>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Todas</Btn>
-              <Btn variant="secondary" onClick={() => setSelectedCols(COLUNAS_PADRAO)} style={{ fontSize: 12, padding: '6px 12px' }}>Padrão</Btn>
-            </div>
-          </div>
+          </div> 
         )}
       </Card>
 
