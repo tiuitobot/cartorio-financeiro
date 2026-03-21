@@ -388,7 +388,33 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
           </div>
 
           <div>
-            <ST>🏦 Pagamentos do Ato</ST>
+            <ST>🏦 Lançamentos e Conferência Financeira</ST>
+            <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
+                Como testar esta etapa
+              </div>
+              <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+                1. Lance um ou mais pagamentos.
+                <br />
+                2. Use <strong>Conferir este lançamento</strong> em cada item, ou <strong>Conferir todos os lançamentos</strong>.
+                <br />
+                3. O <strong>Status oficial</strong> só considera o que já foi conferido pelo financeiro.
+              </div>
+            </div>
+            <div style={{ marginBottom: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
+              <div style={{ padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Lançamentos</div>
+                <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: '#1e3a5f' }}>{form.pagamentos_lancados || 0}</div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #86efac' }}>
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Conferidos</div>
+                <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: '#15803d' }}>{form.pagamentos_confirmados || 0}</div>
+              </div>
+              <div style={{ padding: '10px 12px', borderRadius: 10, background: '#fff7ed', border: '1px solid #fdba74' }}>
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Pendentes de conferência</div>
+                <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: '#c2410c' }}>{form.pagamentos_pendentes_confirmacao || 0}</div>
+              </div>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {(form.pagamentos || []).map((pagamento, index) => {
                 const pagamentoKey = pagamento.id || pagamento._tmp;
@@ -396,7 +422,12 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 return (
                   <div key={pagamentoKey} style={{ border: '1px solid #dbe4f0', borderRadius: 12, padding: 14, background: '#f8fafc' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 13 }}>Pagamento {index + 1}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 13 }}>Lançamento {index + 1}</div>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: pagamento.confirmado_financeiro ? '#15803d' : '#b45309', background: pagamento.confirmado_financeiro ? '#dcfce7' : '#fef3c7', border: `1px solid ${pagamento.confirmado_financeiro ? '#86efac' : '#fde68a'}`, borderRadius: 999, padding: '4px 8px' }}>
+                          {pagamento.confirmado_financeiro ? 'Conferido' : 'Pendente de conferência'}
+                        </span>
+                      </div>
                       {podeEditar && (
                         <Btn variant="secondary" onClick={() => removePagamento(pagamentoKey)} style={{ padding: '4px 10px', fontSize: 12 }}>Remover</Btn>
                       )}
@@ -418,11 +449,11 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                       {podeEditar && toMoney(pagamento.valor) > 0 && (
                         pagamento.confirmado_financeiro ? (
                           <Btn variant="secondary" onClick={() => desfazerConfirmacaoPagamento(pagamentoKey)} style={{ padding: '4px 10px', fontSize: 12 }}>
-                            Desfazer conferência
+                            Marcar como não conferido
                           </Btn>
                         ) : (
                           <Btn variant="success" onClick={() => confirmarPagamento(pagamentoKey)} style={{ padding: '4px 10px', fontSize: 12 }}>
-                            Confirmar pagamento
+                            Conferir este lançamento
                           </Btn>
                         )
                       )}
@@ -434,9 +465,9 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
 
             {podeEditar && (
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Btn variant="secondary" onClick={addPagamento}>+ Adicionar pagamento</Btn>
+                <Btn variant="secondary" onClick={addPagamento}>+ Adicionar lançamento</Btn>
                 {pagamentosValidos.some((pagamento) => !pagamento.confirmado_financeiro) && (
-                  <Btn variant="success" onClick={confirmarTodosPagamentos}>✅ Confirmar todos os lançamentos</Btn>
+                  <Btn variant="success" onClick={confirmarTodosPagamentos}>✅ Conferir todos os lançamentos</Btn>
                 )}
               </div>
             )}
