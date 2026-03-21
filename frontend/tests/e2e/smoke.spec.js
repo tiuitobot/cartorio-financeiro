@@ -32,6 +32,7 @@ test.describe('smoke e2e', () => {
     await expect(page.getByRole('button', { name: /Atos/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Mensal/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Comissões/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Pendências/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Reembolsos/ })).toBeVisible();
 
     await page.getByRole('button', { name: /Escreventes/ }).click();

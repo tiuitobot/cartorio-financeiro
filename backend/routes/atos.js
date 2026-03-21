@@ -16,6 +16,7 @@ const {
   replacePagamentosAto,
 } = require('../lib/pagamentos');
 const { buildAtoDiffMessage } = require('../lib/ato-diff');
+const { syncAutomaticPendenciasForAtoId } = require('../lib/pendencias');
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function normalizeControle(value) {
@@ -357,6 +358,7 @@ router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_finan
        atoPayload.comissao_override, atoPayload.notas]
     );
     await replacePagamentosAto(client, rows[0].id, atoPayload.pagamentos);
+    await syncAutomaticPendenciasForAtoId(client, rows[0].id, { actorUserId: req.user.id || null });
     await client.query('COMMIT');
     const ato = await fetchAtoById(rows[0].id);
     res.status(201).json(ato);
@@ -451,6 +453,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
         [id, autoDiff.autor, req.user.id || null, autoDiff.mensagem, autoDiff.data, autoDiff.status]
       );
     }
+
+    await syncAutomaticPendenciasForAtoId(client, id, { actorUserId: req.user.id || null });
 
     await client.query('COMMIT');
     const ato = await fetchAtoById(id);

@@ -12,4 +12,5 @@ fi
 cd "$ROOT_DIR/backend"
 npm run migrate
 SEED_DEV_PASSWORD="$SEED_PASSWORD" npm run seed:dev
+npm run pendencias:sync
 exec npm start

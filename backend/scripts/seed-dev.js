@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const bcrypt = require('bcrypt');
 const db = require('../db');
+const { syncAutomaticPendenciasForAtoId } = require('../lib/pendencias');
 
 const DEV_PASSWORD = process.env.SEED_DEV_PASSWORD || 'CartorioDev123';
 
@@ -254,6 +255,7 @@ async function main() {
     await client.query('BEGIN');
     await client.query(`
       TRUNCATE TABLE
+        pendencias,
         correcoes,
         pagamentos_reembolso,
         reivindicacoes,
@@ -368,6 +370,10 @@ async function main() {
       );
     }
 
+    for (const item of atos) {
+      await syncAutomaticPendenciasForAtoId(client, item.id, { actorUserId: null });
+    }
+
     await resetSequence(client, 'escreventes');
     await resetSequence(client, 'escreventes_taxas_historico');
     await resetSequence(client, 'usuarios');
@@ -375,6 +381,7 @@ async function main() {
     await resetSequence(client, 'correcoes');
     await resetSequence(client, 'pagamentos_reembolso');
     await resetSequence(client, 'reivindicacoes');
+    await resetSequence(client, 'pendencias');
 
     await client.query('COMMIT');
   } catch (error) {

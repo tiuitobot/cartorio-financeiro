@@ -16,6 +16,7 @@ import PainelUsuarios from './pages/PainelUsuarios.jsx';
 import ModalAto                  from './components/modals/ModalAto.jsx';
 import ModalEscrevente           from './components/modals/ModalEscrevente.jsx';
 import ModalDeclaroParticipacao  from './components/modals/ModalDeclaroParticipacao.jsx';
+import ModalManifestarPendencia  from './components/modals/ModalManifestarPendencia.jsx';
 import ModalRespostaCaptador     from './components/modals/ModalRespostaCaptador.jsx';
 import ModalTrocarSenha          from './components/modals/ModalTrocarSenha.jsx';
 
@@ -51,11 +52,13 @@ export default function App() {
   const [atos, setAtos]                           = useState([]);
   const [escreventes, setEscreventes]             = useState([]);
   const [pagamentosReembolso, setPagamentosReembolso] = useState([]);
+  const [pendencias, setPendencias]               = useState([]);
   const [reivindicacoes, setReivindicacoes]       = useState([]);
   const [view, setView]                           = useState('dashboard');
   const [modalAto, setModalAto]                   = useState(null);
   const [modalEscrevente, setModalEscrevente]     = useState(null);
   const [modalDeclaro, setModalDeclaro]           = useState(false);
+  const [modalManifestarPendencia, setModalManifestarPendencia] = useState(false);
   const [modalRespostaCaptador, setModalRespostaCaptador] = useState(null);
   const [modalSenha, setModalSenha]               = useState(false);
   const [busca, setBusca]                         = useState('');
@@ -129,16 +132,18 @@ export default function App() {
     if (!user) return;
     setLoadingDados(true);
     try {
-      const [atosData, escsData, rembs, reivs] = await Promise.all([
+      const [atosData, escsData, rembs, reivs, pendenciasData] = await Promise.all([
         api.getAtos(),
         api.getEscreventes(),
         api.getReembolsos(),
         api.getReivindicacoes(),
+        api.getPendencias({ status: 'todas' }),
       ]);
       setAtos(sortAtos(atosData.map(normalizeAto)));
       setEscreventes(sortEscreventesByNome(escsData));
       setPagamentosReembolso(rembs.map(normalizeReembolso));
       setReivindicacoes(reivs);
+      setPendencias(pendenciasData);
     } catch (e) {
       setErro('Erro ao carregar dados: ' + e.message);
     } finally {
@@ -156,7 +161,7 @@ export default function App() {
   };
   const handleLogout = () => {
     localStorage.removeItem('cartorio_token');
-    setUser(null); setAtos([]); setEscreventes([]); setPagamentosReembolso([]); setReivindicacoes([]);
+    setUser(null); setAtos([]); setEscreventes([]); setPagamentosReembolso([]); setPendencias([]); setReivindicacoes([]);
     setDadosInicializados(false); setLoadingDados(false);
   };
 
@@ -238,6 +243,24 @@ export default function App() {
       setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
       if (aceitar) await carregarDados();
     } catch (e) { setErro(e.message); }
+  };
+
+  const handleManifestarPendencia = async (payload) => {
+    const pendencia = await api.manifestarPendencia(payload);
+    await carregarDados();
+    return pendencia;
+  };
+
+  const handleAtualizarPendencia = async (pendenciaId, payload) => {
+    const atualizada = await api.atualizarPendencia(pendenciaId, payload);
+    setPendencias((prev) => prev.map((item) => item.id === atualizada.id ? atualizada : item));
+    await carregarDados();
+    return atualizada;
+  };
+
+  const handleOcultarPendencia = async (pendenciaId) => {
+    await api.ocultarPendencia(pendenciaId);
+    setPendencias((prev) => prev.filter((item) => item.id !== pendenciaId));
   };
 
   // ── Visibilidade de atos (C1: backend já filtra para escrevente; workaround mantido como camada extra) ──
@@ -330,7 +353,10 @@ export default function App() {
               <button onClick={() => setModalAto('novo')} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Ato</button>
             )}
             {view === 'atos' && userRole === 'escrevente' && (
-              <button onClick={() => setModalDeclaro(true)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>📝 Declaro Participação</button>
+              <>
+                <button onClick={() => setModalManifestarPendencia(true)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>⚠️ Manifestar Pendência</button>
+                <button onClick={() => setModalDeclaro(true)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>📝 Declaro Participação</button>
+              </>
             )}
             {view === 'escreventes' && userRole === 'admin' && (
               <button onClick={() => setModalEscrevente({ nome: '', taxa: 6, cargo: '', email: '', compartilhar_com: [], taxas_historico: [], taxa_vigencia_inicio: new Date().toISOString().slice(0, 10) })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
@@ -376,9 +402,13 @@ export default function App() {
               <Relatorios
                 atos={atos}
                 escreventes={escreventesOrdenados}
+                pendencias={pendencias}
                 pagamentosReembolso={pagamentosReembolso}
                 userRole={userRole}
                 userId={userId}
+                onOpenAto={(ato) => setModalAto(ato)}
+                onAtualizarPendencia={async (id, payload) => { try { return await handleAtualizarPendencia(id, payload); } catch (e) { setErro(e.message); throw e; } }}
+                onOcultarPendencia={async (id) => { try { await handleOcultarPendencia(id); } catch (e) { setErro(e.message); throw e; } }}
                 onAddPagamento={async p => { try { const novo = normalizeReembolso(await api.criarReembolso(p)); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
                 onConfirmarReembolso={async id => { try { const atualizado = normalizeReembolso(await api.confirmarReembolso(id)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
                 onContestarReembolso={async (id, justificativa) => { try { const atualizado = normalizeReembolso(await api.contestarReembolso(id, justificativa)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
@@ -426,6 +456,19 @@ export default function App() {
           escreventes={escreventes}
           onClose={() => setModalDeclaro(false)}
           onSubmit={handleDeclaro}
+        />
+      )}
+      {modalManifestarPendencia && (
+        <ModalManifestarPendencia
+          onClose={() => setModalManifestarPendencia(false)}
+          onSubmit={async (payload) => {
+            try {
+              await handleManifestarPendencia(payload);
+              setModalManifestarPendencia(false);
+            } catch (error) {
+              throw error;
+            }
+          }}
         />
       )}
       {modalRespostaCaptador && (

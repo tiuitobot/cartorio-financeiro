@@ -16,6 +16,37 @@ const STATUS_OPTIONS = [
   { value: 'pago_menor', label: 'Pago a menor' },
   { value: 'pago_maior', label: 'Pago a maior' },
 ];
+const PENDENCIA_TYPE_OPTIONS = [
+  { value: '', label: 'Todas' },
+  { value: 'pendencia_pagamento', label: 'Pagamento' },
+  { value: 'confirmacao_pendente', label: 'Confirmação pendente' },
+  { value: 'manifestacao_escrevente', label: 'Manifestação do escrevente' },
+  { value: 'informacao_conflitante', label: 'Informação conflitante' },
+  { value: 'informacao_incompleta', label: 'Informação incompleta' },
+];
+const PENDENCIA_STATUS_OPTIONS = [
+  { value: 'abertas', label: 'Abertas' },
+  { value: 'solucionadas', label: 'Solucionadas' },
+  { value: 'todas', label: 'Todas' },
+];
+
+function pendenciaLabel(tipo) {
+  return PENDENCIA_TYPE_OPTIONS.find((item) => item.value === tipo)?.label || tipo;
+}
+
+function pendenciaColor(tipo) {
+  return ({
+    pendencia_pagamento: '#dc2626',
+    confirmacao_pendente: '#d97706',
+    manifestacao_escrevente: '#2563eb',
+    informacao_conflitante: '#7c3aed',
+    informacao_incompleta: '#0f766e',
+  })[tipo] || '#64748b';
+}
+
+function origemLabel(origem) {
+  return origem === 'escrevente' ? 'Escrevente' : 'Automática';
+}
 
 const TH = ({ c }) => <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#475569', fontSize: 12, textTransform: 'uppercase', whiteSpace: 'nowrap', background: '#f1f5f9' }}>{c}</th>;
 const TD = ({ c, bold, color }) => <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontWeight: bold ? 700 : 400, color: color || '#1e293b' }}>{c}</td>;
@@ -23,10 +54,14 @@ const TD = ({ c, bold, color }) => <td style={{ padding: '10px 14px', whiteSpace
 export default function Relatorios({
   atos,
   escreventes,
+  pendencias,
   pagamentosReembolso,
   onAddPagamento,
   onConfirmarReembolso,
   onContestarReembolso,
+  onOpenAto,
+  onAtualizarPendencia,
+  onOcultarPendencia,
   userRole,
   userId,
 }) {
@@ -36,6 +71,7 @@ export default function Relatorios({
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showMensalPanel, setShowMensalPanel] = useState(false);
   const [showComPanel, setShowComPanel] = useState(false);
+  const [showPendPanel, setShowPendPanel] = useState(false);
   const [selectedComDetalheId, setSelectedComDetalheId] = useState(null);
   const [fStatus, setFStatus] = useState('');
   const [fCaptador, setFCaptador] = useState('');
@@ -47,12 +83,19 @@ export default function Relatorios({
   const [comInicio, setComInicio] = useState(anoInicio);
   const [comFim, setComFim] = useState(anoFim);
   const [comEscIds, setComEscIds] = useState([]);
+  const [pTipo, setPTipo] = useState('');
+  const [pEscrevente, setPEscrevente] = useState('');
+  const [pControle, setPControle] = useState('');
+  const [pInicio, setPInicio] = useState('');
+  const [pFim, setPFim] = useState('');
+  const [pStatus, setPStatus] = useState('abertas');
   const [modalReembolso, setModalReembolso] = useState(null);
 
   const tabs = [
     { key: 'atos', label: '📋 Atos' },
     { key: 'mensal', label: '📅 Mensal' },
     { key: 'comissoes', label: '📊 Comissões' },
+    { key: 'pendencias', label: '⚠️ Pendências' },
     { key: 'reembolsos', label: '🔄 Reembolsos' },
   ];
 
@@ -150,6 +193,32 @@ export default function Relatorios({
     return { ...escrevente, lancado, pago, saldo: lancado - pago };
   }).filter((item) => item.lancado > 0 || item.pago > 0);
 
+  const pendenciasFiltradas = useMemo(() => {
+    return [...pendencias]
+      .filter((item) => {
+        if (pStatus !== 'todas') {
+          if (pStatus === 'abertas' && item.solucionado) return false;
+          if (pStatus === 'solucionadas' && !item.solucionado) return false;
+        }
+        if (pTipo && item.tipo !== pTipo) return false;
+        if (pEscrevente && item.escrevente_id !== Number.parseInt(pEscrevente, 10)) return false;
+        if (pControle) {
+          const term = String(pControle).replace(/\D/g, '');
+          const controleAtual = String(item.controle || '').replace(/\D/g, '');
+          if (!controleAtual.includes(term)) return false;
+        }
+        const dataBase = item.data_ato || item.criado_em?.slice(0, 10) || '';
+        if (pInicio && (!dataBase || dataBase < pInicio)) return false;
+        if (pFim && (!dataBase || dataBase > pFim)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.solucionado !== b.solucionado) return a.solucionado ? 1 : -1;
+        if (a.solucionado) return String(b.solucionado_em || '').localeCompare(String(a.solucionado_em || ''));
+        return String(a.criado_em || '').localeCompare(String(b.criado_em || ''));
+      });
+  }, [pendencias, pStatus, pTipo, pEscrevente, pControle, pInicio, pFim]);
+
   const captadorNome = escreventes.find((item) => item.id === Number.parseInt(fCaptador, 10))?.nome;
   const hasAtosFilters = Boolean(fStatus || fCaptador || fInicio || fFim || fBusca);
   const advancedAtosFilterCount = [fCaptador, fInicio, fFim].filter(Boolean).length;
@@ -169,6 +238,23 @@ export default function Relatorios({
     comFim ? { key: 'com_fim', label: `Até: ${comFim}`, onRemove: () => setComFim('') } : null,
     comEscIds.length > 0 ? { key: 'com_esc', label: `${comEscIds.length} escrevente(s)`, onRemove: () => setComEscIds([]) } : null,
   ].filter(Boolean);
+  const pendEscreventeNome = escreventes.find((item) => item.id === Number.parseInt(pEscrevente, 10))?.nome;
+  const activePendFilters = [
+    pControle ? { key: 'controle', label: `Controle: ${pControle}`, onRemove: () => setPControle('') } : null,
+    pTipo ? { key: 'tipo', label: `Tipo: ${pendenciaLabel(pTipo)}`, onRemove: () => setPTipo('') } : null,
+    pEscrevente ? { key: 'escrevente', label: `Escrevente: ${pendEscreventeNome || pEscrevente}`, onRemove: () => setPEscrevente('') } : null,
+    pInicio ? { key: 'inicio', label: `De: ${pInicio}`, onRemove: () => setPInicio('') } : null,
+    pFim ? { key: 'fim', label: `Até: ${pFim}`, onRemove: () => setPFim('') } : null,
+  ].filter(Boolean);
+
+  const resetPendFilters = () => {
+    setPTipo('');
+    setPEscrevente('');
+    setPControle('');
+    setPInicio('');
+    setPFim('');
+    setPStatus('abertas');
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -677,6 +763,212 @@ export default function Relatorios({
               </div>
             </div>
           </Sheet>
+        </div>
+      )}
+
+      {tab === 'pendencias' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Card style={{ padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Conciliação e Pendências</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                  Pendências abertas ficam no topo. Filtros detalhados saem da grade principal e entram em um sheet dedicado.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Btn variant="secondary" onClick={() => setShowPendPanel(true)} style={{ fontSize: 12, padding: '9px 12px' }}>
+                  Filtros
+                </Btn>
+                {activePendFilters.length > 0 && (
+                  <Btn variant="secondary" onClick={resetPendFilters} style={{ fontSize: 12, padding: '9px 12px' }}>
+                    Limpar tudo
+                  </Btn>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.2fr) minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>Busca principal</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #dbe4f0', borderRadius: 14, padding: '10px 14px', background: '#f8fbff' }}>
+                  <span style={{ fontSize: 16, color: '#1d4ed8' }}>⌕</span>
+                  <input
+                    placeholder="Controle da pendência"
+                    value={pControle}
+                    onChange={(e) => setPControle(e.target.value)}
+                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1e293b' }}
+                  />
+                </div>
+                <div style={{ marginTop: 10, fontSize: 12, color: '#64748b' }}>
+                  {pendenciasFiltradas.length} pendência(s) encontradas.
+                </div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 14, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Status</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {PENDENCIA_STATUS_OPTIONS.map((option) => (
+                    <FilterChip key={option.value} active={pStatus === option.value} onClick={() => setPStatus(option.value)}>
+                      {option.label}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {activePendFilters.length > 0 && (
+              <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingTop: 14, borderTop: '1px dashed #dbe4f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7 }}>Filtros ativos</div>
+                {activePendFilters.map((filter) => (
+                  <ActiveFilterTag key={filter.key} label={filter.label} onRemove={filter.onRemove} />
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Sheet
+            open={showPendPanel}
+            title="Filtros de pendências"
+            subtitle="Refine a fila por tipo, escrevente e período sem transformar a tela em formulário."
+            onClose={() => setShowPendPanel(false)}
+            footer={(
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <Btn variant="secondary" onClick={resetPendFilters} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Limpar tudo
+                </Btn>
+                <Btn variant="secondary" onClick={() => setShowPendPanel(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Fechar
+                </Btn>
+              </div>
+            )}
+          >
+            <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Classificação</div>
+                <FSel
+                  label="Tipo"
+                  options={PENDENCIA_TYPE_OPTIONS}
+                  value={pTipo}
+                  onChange={(e) => setPTipo(e.target.value)}
+                />
+              </div>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Pessoa</div>
+                <FSel
+                  label="Escrevente"
+                  options={[{ value: '', label: 'Todos' }, ...escreventes.map((item) => ({ value: item.id, label: item.nome }))]}
+                  value={pEscrevente}
+                  onChange={(e) => setPEscrevente(e.target.value)}
+                />
+              </div>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Período</div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <FInput label="Data inicial" type="date" value={pInicio} onChange={(e) => setPInicio(e.target.value)} />
+                  <FInput label="Data final" type="date" value={pFim} onChange={(e) => setPFim(e.target.value)} />
+                </div>
+              </div>
+            </div>
+          </Sheet>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+            {[
+              { l: 'Abertas', v: pendencias.filter((item) => !item.solucionado).length, c: '#dc2626' },
+              { l: 'Solucionadas', v: pendencias.filter((item) => item.solucionado).length, c: '#16a34a' },
+              { l: 'Visíveis', v: pendencias.length, c: '#1e3a5f' },
+            ].map((metric) => (
+              <div key={metric.l} style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid #e8edf5' }}>
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{metric.l}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: metric.c }}>{metric.v}</div>
+              </div>
+            ))}
+          </div>
+
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            <StickyXScroll>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1160 }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9' }}>
+                    {['Criada em', 'Controle', 'Referência', 'Tipo', 'Descrição', 'Escrevente', 'Origem', 'Status', ''].map((header) => <TH key={header} c={header} />)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendenciasFiltradas.map((item, index) => {
+                    const ato = atos.find((atoAtual) => atoAtual.id === item.ato_id) || null;
+                    return (
+                      <tr key={item.id} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                        <TD c={fmtDate(item.criado_em)} />
+                        <TD c={item.controle ? padControle(item.controle) : '—'} bold />
+                        <TD c={item.acesso_ato_restrito ? 'Acesso restrito' : (item.referencia || '—')} />
+                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                          <Badge label={pendenciaLabel(item.tipo)} color={pendenciaColor(item.tipo)} />
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#334155', minWidth: 320, lineHeight: 1.45 }}>
+                          {item.descricao}
+                          {item.acesso_ato_restrito && (
+                            <div style={{ fontSize: 12, color: '#92400e', marginTop: 6 }}>
+                              Dados do ato restritos até tratamento pelo financeiro.
+                            </div>
+                          )}
+                        </td>
+                        <TD c={item.escrevente_nome || '—'} />
+                        <TD c={origemLabel(item.origem)} />
+                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                          <Badge label={item.solucionado ? 'Solucionada' : 'Aberta'} color={item.solucionado ? '#16a34a' : '#dc2626'} />
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                            {item.pode_abrir_ato && ato && (
+                              <Btn variant="secondary" onClick={() => onOpenAto?.(ato)} style={{ fontSize: 12, padding: '6px 12px' }}>
+                                Abrir ato
+                              </Btn>
+                            )}
+                            {['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && !item.solucionado && (
+                              <Btn
+                                variant="success"
+                                onClick={async () => {
+                                  const resolucao = window.prompt('Observação da solução (opcional):', '');
+                                  if (resolucao === null) return;
+                                  await onAtualizarPendencia?.(item.id, { solucionado: true, resolucao });
+                                }}
+                                style={{ fontSize: 12, padding: '6px 12px' }}
+                              >
+                                Solucionar
+                              </Btn>
+                            )}
+                            {['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && item.solucionado && (
+                              <>
+                                <Btn
+                                  variant="warning"
+                                  onClick={async () => { await onAtualizarPendencia?.(item.id, { solucionado: false }); }}
+                                  style={{ fontSize: 12, padding: '6px 12px' }}
+                                >
+                                  Reabrir
+                                </Btn>
+                                <Btn
+                                  variant="secondary"
+                                  onClick={async () => { await onOcultarPendencia?.(item.id); }}
+                                  style={{ fontSize: 12, padding: '6px 12px' }}
+                                >
+                                  Ocultar
+                                </Btn>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </StickyXScroll>
+            {pendenciasFiltradas.length === 0 && (
+              <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>
+                Nenhuma pendência encontrada com os filtros atuais.
+              </div>
+            )}
+          </Card>
         </div>
       )}
 

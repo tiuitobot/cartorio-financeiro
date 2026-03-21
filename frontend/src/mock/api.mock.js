@@ -670,6 +670,31 @@ export const apiMock = {
     return { ..._reivindicacoes[idx] };
   },
 
+  // ── Pendências ────────────────────────────────────────────────────────────
+  getPendencias: async () => {
+    await delay();
+    requireUser();
+    return [];
+  },
+
+  manifestarPendencia: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'escrevente');
+    throw new Error('Manifestação de pendência indisponível no modo mock');
+  },
+
+  atualizarPendencia: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Tratamento de pendência indisponível no modo mock');
+  },
+
+  ocultarPendencia: async () => {
+    await delay();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro');
+    throw new Error('Ocultação de pendência indisponível no modo mock');
+  },
+
   // ── Importações ────────────────────────────────────────────────────────────
   getImportacoes: async () => {
     await delay();

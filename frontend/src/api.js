@@ -25,7 +25,13 @@ async function req(method, path, body) {
   if (body !== undefined) opts.body = JSON.stringify(body);
   const r = await fetch(`${BASE}${path}`, opts);
   if (r.status === 401) { localStorage.removeItem('cartorio_token'); window.location.reload(); }
-  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.erro || `Erro ${r.status}`); }
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    const err = new Error(e.erro || `Erro ${r.status}`);
+    err.status = r.status;
+    err.data = e;
+    throw err;
+  }
   return r.status === 204 ? null : r.json();
 }
 
@@ -36,7 +42,13 @@ async function reqForm(method, path, formData) {
     body: formData,
   });
   if (r.status === 401) { localStorage.removeItem('cartorio_token'); window.location.reload(); }
-  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.erro || `Erro ${r.status}`); }
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    const err = new Error(e.erro || `Erro ${r.status}`);
+    err.status = r.status;
+    err.data = e;
+    throw err;
+  }
   return r.status === 204 ? null : r.json();
 }
 
@@ -66,6 +78,12 @@ const apiReal = {
   getReivindicacoes:    ()              => req('GET',  '/reivindicacoes'),
   criarReivindicacao:   (data)         => req('POST', '/reivindicacoes', data),
   atualizarReivindicacao:(id,data)     => req('PUT',  `/reivindicacoes/${id}`, data),
+
+  // Pendências
+  getPendencias:        (params={})    => req('GET', `/pendencias?${new URLSearchParams(params)}`),
+  manifestarPendencia:  (data)         => req('POST', '/pendencias/manifestar', data),
+  atualizarPendencia:   (id, data)     => req('PUT', `/pendencias/${id}`, data),
+  ocultarPendencia:     (id)           => req('PUT', `/pendencias/${id}/ocultar`, {}),
 
   // Importações
   getImportacoes:      (params={})     => req('GET',  `/importacoes?${new URLSearchParams(params)}`),

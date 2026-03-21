@@ -13,6 +13,11 @@ const {
   HISTORICO_TAXA_BASE_DATE,
   upsertTaxaHistorico,
 } = require('../lib/taxas-historico');
+const {
+  createImportIssuePendencia,
+  normalizeControle,
+  syncAutomaticPendenciasForAtoId,
+} = require('../lib/pendencias');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -396,6 +401,49 @@ async function createEscreventeForImport(client, nome, taxa) {
   return rows[0];
 }
 
+async function findExistingAtoForImportIssue(client, normalized) {
+  const controle = normalizeControle(normalized?.controle);
+  if (controle) {
+    const byControle = await client.query(
+      'SELECT id, controle, livro, pagina, data_ato FROM atos WHERE controle = $1 LIMIT 1',
+      [controle]
+    );
+    if (byControle.rows[0]) return byControle.rows[0];
+  }
+
+  const livro = String(Number.parseInt(normalized?.livro, 10) || 0);
+  const pagina = String(Number.parseInt(normalized?.pagina, 10) || 0);
+  if (livro !== '0' && pagina !== '0') {
+    const byRef = await client.query(
+      'SELECT id, controle, livro, pagina, data_ato FROM atos WHERE livro = $1 AND pagina = $2 LIMIT 1',
+      [livro, pagina]
+    );
+    if (byRef.rows[0]) return byRef.rows[0];
+  }
+
+  return null;
+}
+
+async function registerImportIssuePendencia(client, { loteId, row, tipo, motivos, ato }) {
+  const normalized = row.normalized_data || {};
+  return createImportIssuePendencia(client, {
+    ato_id: ato?.id || null,
+    import_lote_id: loteId,
+    tipo,
+    descricao: `Linha ${row.numero_linha}: ${motivos.join('; ')}`,
+    controle_ref: normalized.controle,
+    data_ato_ref: normalized.data_ato || null,
+    chave_unica: `import:${loteId}:linha:${row.numero_linha}:${tipo}`,
+    metadata: {
+      numero_linha: row.numero_linha,
+      motivos,
+      referencia: ato
+        ? { ato_id: ato.id, controle: ato.controle, livro: ato.livro, pagina: ato.pagina }
+        : null,
+    },
+  });
+}
+
 async function importLote(loteId, actorUserId, options = {}) {
   const client = await db.connect();
 
@@ -453,24 +501,44 @@ async function importLote(loteId, actorUserId, options = {}) {
           numero_linha: row.numero_linha,
           motivos: existingErrors,
         });
+        await registerImportIssuePendencia(client, {
+          loteId,
+          row,
+          tipo: 'informacao_incompleta',
+          motivos: existingErrors,
+        });
         continue;
       }
 
       const captadorKey = normalizeKey(normalized.escrevente_nome);
       if (!captadorKey) {
         result.skipped += 1;
+        const motivos = ['ESCREVENTE ausente para mapear captador'];
         result.errors.push({
           numero_linha: row.numero_linha,
-          motivos: ['ESCREVENTE ausente para mapear captador'],
+          motivos,
+        });
+        await registerImportIssuePendencia(client, {
+          loteId,
+          row,
+          tipo: 'informacao_incompleta',
+          motivos,
         });
         continue;
       }
 
       if (ambiguousCaptadores.has(captadorKey)) {
         result.skipped += 1;
+        const motivos = [`Nome de escrevente ambíguo no cadastro: ${normalized.escrevente_nome}`];
         result.errors.push({
           numero_linha: row.numero_linha,
-          motivos: [`Nome de escrevente ambíguo no cadastro: ${normalized.escrevente_nome}`],
+          motivos,
+        });
+        await registerImportIssuePendencia(client, {
+          loteId,
+          row,
+          tipo: 'informacao_conflitante',
+          motivos,
         });
         continue;
       }
@@ -478,9 +546,16 @@ async function importLote(loteId, actorUserId, options = {}) {
       const captador = captadoresByKey.get(captadorKey);
       if (!captador && !options.autoCreateMissingEscreventes) {
         result.skipped += 1;
+        const motivos = [`Escrevente não cadastrado: ${normalized.escrevente_nome}`];
         result.errors.push({
           numero_linha: row.numero_linha,
-          motivos: [`Escrevente não cadastrado: ${normalized.escrevente_nome}`],
+          motivos,
+        });
+        await registerImportIssuePendencia(client, {
+          loteId,
+          row,
+          tipo: 'informacao_incompleta',
+          motivos,
         });
         continue;
       }
@@ -578,6 +653,7 @@ async function importLote(loteId, actorUserId, options = {}) {
             confirmado_financeiro_em: pagamentoImportado.confirmado_financeiro ? `${normalized.confirmacao_recebimento_em || normalized.data_pagamento}T12:00:00.000Z` : null,
           }]);
         }
+        await syncAutomaticPendenciasForAtoId(client, insertResult.rows[0].id, { actorUserId: actorUserId || null });
         await client.query('RELEASE SAVEPOINT import_row');
         result.imported += 1;
         result.imported_ids.push(insertResult.rows[0].id);
@@ -597,6 +673,14 @@ async function importLote(loteId, actorUserId, options = {}) {
         result.errors.push({
           numero_linha: row.numero_linha,
           motivos: [motivo],
+        });
+        const existingAto = await findExistingAtoForImportIssue(client, normalized);
+        await registerImportIssuePendencia(client, {
+          loteId,
+          row,
+          tipo: 'informacao_conflitante',
+          motivos: [motivo],
+          ato: existingAto,
         });
       }
     }

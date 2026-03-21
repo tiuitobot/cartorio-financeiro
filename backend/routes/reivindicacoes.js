@@ -3,6 +3,7 @@ const db = require('../db');
 const { authMiddleware, requirePerfil } = require('../middleware/auth');
 const { formatDatePtBr } = require('../lib/audit');
 const { buildReivindicacoesScope } = require('../lib/list-scopes');
+const { normalizeControle, upsertOpenPendencia } = require('../lib/pendencias');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -44,44 +45,93 @@ router.post('/', authMiddleware, requirePerfil('escrevente'), async (req, res) =
 router.put('/:id', authMiddleware, async (req, res) => {
   const id = parseInt(req.params.id);
   const { status, justificativa, decisao_financeiro } = req.body;
+  const client = await db.connect();
   try {
-    const { rows: reiv } = await db.query('SELECT * FROM reivindicacoes WHERE id=$1', [id]);
-    if (!reiv.length) return res.status(404).json({ erro: 'Reivindicação não encontrada' });
+    await client.query('BEGIN');
+    const { rows: reiv } = await client.query('SELECT * FROM reivindicacoes WHERE id=$1 FOR UPDATE', [id]);
+    if (!reiv.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ erro: 'Reivindicação não encontrada' });
+    }
     const r = reiv[0];
     const perfil = req.user.perfil;
     const eid = req.user.escrevente_id;
 
     // Captador responde (aceita ou recusa)
     if (status === 'aceita' || status === 'recusada') {
-      const { rows: ato } = await db.query('SELECT captador_id FROM atos WHERE id=$1', [r.ato_id]);
-      if (!ato.length) return res.status(404).json({ erro: 'Ato não encontrado' });
+      const { rows: ato } = await client.query('SELECT captador_id FROM atos WHERE id=$1', [r.ato_id]);
+      if (!ato.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ erro: 'Ato não encontrado' });
+      }
       const isCaptador = ato[0].captador_id === eid;
       const isAdmin = ['admin','financeiro','chefe_financeiro'].includes(perfil);
-      if (!isCaptador && !isAdmin) return res.status(403).json({ erro: 'Somente o captador pode responder' });
+      if (!isCaptador && !isAdmin) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ erro: 'Somente o captador pode responder' });
+      }
       if (status === 'aceita') {
         const campo = r.funcao === 'executor' ? 'executor_id' : 'signatario_id';
-        await db.query(`UPDATE atos SET ${campo}=$1 WHERE id=$2`, [r.escrevente_id, r.ato_id]);
+        await client.query(`UPDATE atos SET ${campo}=$1 WHERE id=$2`, [r.escrevente_id, r.ato_id]);
       }
     }
     // Escrevente contesta recusa
     if (status === 'contestada') {
-      if (eid !== r.escrevente_id) return res.status(403).json({ erro: 'Permissão insuficiente' });
+      if (eid !== r.escrevente_id) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ erro: 'Permissão insuficiente' });
+      }
     }
     // Financeiro decide contestação
     if (status === 'aceita_financeiro' || status === 'negada_financeiro') {
       if (!['admin','financeiro','chefe_financeiro'].includes(perfil))
-        return res.status(403).json({ erro: 'Permissão insuficiente' });
+        {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ erro: 'Permissão insuficiente' });
+        }
       if (status === 'aceita_financeiro') {
         const campo = r.funcao === 'executor' ? 'executor_id' : 'signatario_id';
-        await db.query(`UPDATE atos SET ${campo}=$1 WHERE id=$2`, [r.escrevente_id, r.ato_id]);
+        await client.query(`UPDATE atos SET ${campo}=$1 WHERE id=$2`, [r.escrevente_id, r.ato_id]);
       }
     }
-    const { rows } = await db.query(
+    const { rows } = await client.query(
       `UPDATE reivindicacoes SET status=$1,justificativa=$2,decisao_financeiro=$3 WHERE id=$4 RETURNING *`,
       [status, justificativa||r.justificativa, decisao_financeiro||r.decisao_financeiro, id]
     );
+    if (status === 'contestada') {
+      const { rows: atoRows } = await client.query(
+        'SELECT id, controle, data_ato FROM atos WHERE id = $1',
+        [r.ato_id]
+      );
+      const ato = atoRows[0];
+      if (ato) {
+        await upsertOpenPendencia(client, {
+          ato_id: ato.id,
+          tipo: 'manifestacao_escrevente',
+          descricao: `Contestação de reivindicação para ${r.funcao}: ${justificativa || 'sem justificativa informada'}`,
+          escrevente_id: r.escrevente_id,
+          origem: 'escrevente',
+          controle_ref: normalizeControle(ato.controle),
+          data_ato_ref: ato.data_ato,
+          criado_por_user_id: req.user.id || null,
+          chave_unica: `reivindicacao:${r.id}:contestada`,
+          metadata: {
+            reivindicacao_id: r.id,
+            funcao: r.funcao,
+            justificativa: justificativa || r.justificativa || null,
+          },
+        });
+      }
+    }
+    await client.query('COMMIT');
     res.json(rows[0]);
-  } catch (e) { console.error(e); res.status(500).json({ erro: 'Erro interno' }); }
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error(e);
+    res.status(500).json({ erro: 'Erro interno' });
+  } finally {
+    client.release();
+  }
 });
 
 module.exports = router;

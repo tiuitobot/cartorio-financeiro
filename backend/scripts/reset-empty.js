@@ -29,6 +29,7 @@ async function main() {
     await client.query('BEGIN');
     await client.query(`
       TRUNCATE TABLE
+        pendencias,
         import_linhas,
         import_lotes,
         correcoes,

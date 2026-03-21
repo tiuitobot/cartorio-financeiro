@@ -3,6 +3,10 @@ const router = require('express').Router();
 const db = require('../db');
 const { authMiddleware, requirePerfil } = require('../middleware/auth');
 const { buildReembolsosScope } = require('../lib/list-scopes');
+const {
+  createReembolsoContestacaoPendencia,
+  resolveReembolsoContestacaoPendencia,
+} = require('../lib/pendencias');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -33,14 +37,21 @@ router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_finan
 
 router.put('/:id/confirmar', authMiddleware, async (req, res) => {
   const id = parseInt(req.params.id);
-  // Apenas admin ou o próprio escrevente pode confirmar
+  const client = await db.connect();
   try {
-    const { rows: pgto } = await db.query('SELECT * FROM pagamentos_reembolso WHERE id=$1', [id]);
-    if (!pgto.length) return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    await client.query('BEGIN');
+    const { rows: pgto } = await client.query('SELECT * FROM pagamentos_reembolso WHERE id=$1 FOR UPDATE', [id]);
+    if (!pgto.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    }
     const isAdmin = ['admin','financeiro','chefe_financeiro'].includes(req.user.perfil);
     const isOwner = req.user.escrevente_id === pgto[0].escrevente_id;
-    if (!isAdmin && !isOwner) return res.status(403).json({ erro: 'Permissão insuficiente' });
-    const { rows } = await db.query(
+    if (!isAdmin && !isOwner) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ erro: 'Permissão insuficiente' });
+    }
+    const { rows } = await client.query(
       `UPDATE pagamentos_reembolso
           SET confirmado_escrevente=true,
               confirmado_em=NOW(),
@@ -50,8 +61,15 @@ router.put('/:id/confirmar', authMiddleware, async (req, res) => {
         WHERE id=$1
         RETURNING *`, [id]
     );
+    await resolveReembolsoContestacaoPendencia(client, id, req.user.id || null);
+    await client.query('COMMIT');
     res.json(rows[0]);
-  } catch (e) { res.status(500).json({ erro: 'Erro interno' }); }
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ erro: 'Erro interno' });
+  } finally {
+    client.release();
+  }
 });
 
 router.put('/:id/contestar', authMiddleware, async (req, res) => {
@@ -59,14 +77,22 @@ router.put('/:id/contestar', authMiddleware, async (req, res) => {
   const justificativa = String(req.body?.justificativa || '').trim();
   if (!justificativa) return res.status(400).json({ erro: 'Justificativa obrigatória' });
 
+  const client = await db.connect();
   try {
-    const { rows: pgto } = await db.query('SELECT * FROM pagamentos_reembolso WHERE id=$1', [id]);
-    if (!pgto.length) return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    await client.query('BEGIN');
+    const { rows: pgto } = await client.query('SELECT * FROM pagamentos_reembolso WHERE id=$1 FOR UPDATE', [id]);
+    if (!pgto.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    }
 
     const isOwner = req.user.escrevente_id === pgto[0].escrevente_id;
-    if (!isOwner) return res.status(403).json({ erro: 'Permissão insuficiente' });
+    if (!isOwner) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ erro: 'Permissão insuficiente' });
+    }
 
-    const { rows } = await db.query(
+    const { rows } = await client.query(
       `UPDATE pagamentos_reembolso
           SET confirmado_escrevente=false,
               contestado_escrevente=true,
@@ -76,9 +102,18 @@ router.put('/:id/contestar', authMiddleware, async (req, res) => {
         RETURNING *`,
       [id, justificativa]
     );
+    await createReembolsoContestacaoPendencia(client, {
+      pagamento: rows[0],
+      user: req.user,
+      justificativa,
+    });
+    await client.query('COMMIT');
     res.json(rows[0]);
   } catch (e) {
+    await client.query('ROLLBACK');
     res.status(500).json({ erro: 'Erro interno' });
+  } finally {
+    client.release();
   }
 });
 
