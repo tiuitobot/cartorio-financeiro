@@ -263,7 +263,7 @@ export default function Atos({
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #dbe4f0', borderRadius: 14, padding: '10px 14px', background: '#f8fbff' }}>
               <span style={{ fontSize: 16, color: '#1d4ed8' }}>⌕</span>
               <input
-                placeholder="Controle, L42P15 ou referência do ato..."
+                placeholder="Controle, L42P15, tomador, tipo ou escrevente..."
                 value={busca}
                 onChange={(e) => onBusca(e.target.value)}
                 style={{

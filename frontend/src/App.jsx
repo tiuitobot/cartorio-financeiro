@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { api } from './api.js';
-import { parseRef, padControle, toMoneyNumber } from './utils/format.js';
+import { toMoneyNumber } from './utils/format.js';
 import { normalizeFormaPagamento } from './constants.js';
+import { atoMatchesSearch } from './utils/search.js';
 
 // Pages
 import TelaLogin      from './pages/TelaLogin.jsx';
@@ -274,15 +275,18 @@ export default function App() {
     return (esc?.compartilhar_com || []).some(cid => [ato.captador_id, ato.executor_id, ato.signatario_id].includes(cid));
   };
 
+  const escreventesById = useMemo(
+    () => new Map(escreventes.map((item) => [item.id, item])),
+    [escreventes]
+  );
+
   const atosFiltrados = useMemo(() => {
     let l = atos.filter(podeVerAto);
     if (busca) {
-      const ref = parseRef(busca);
-      if (ref) { l = l.filter(a => parseInt(a.livro) === ref.livro && parseInt(a.pagina) === ref.pagina); }
-      else { const b = busca.toLowerCase(); l = l.filter(a => padControle(a.controle).includes(b) || a.controle.includes(b)); }
+      l = l.filter((ato) => atoMatchesSearch(ato, busca, escreventesById));
     }
     return sortAtos(l);
-  }, [atos, userRole, userId, escreventes, busca]);
+  }, [atos, userRole, userId, escreventes, busca, escreventesById]);
 
   const escreventesOrdenados = useMemo(() => sortEscreventesByNome(escreventes), [escreventes]);
 

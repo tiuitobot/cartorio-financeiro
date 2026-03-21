@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Card, FInput, FSel, Btn, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
-import { padControle, fmt, fmtDate, sColor, parseRef } from '../utils/format.js';
+import { padControle, fmt, fmtDate, sColor } from '../utils/format.js';
 import { exportXLSX, ALL_COLS } from '../utils/export.js';
 import { FORMAS_PAGAMENTO } from '../constants.js';
+import { atoMatchesSearch } from '../utils/search.js';
 import ModalPgtoReembolso from '../components/modals/ModalPgtoReembolso.jsx';
 
 const hoje = new Date();
@@ -118,15 +119,10 @@ export default function Relatorios({
     if (fInicio) list = list.filter((ato) => ato.data_ato >= fInicio);
     if (fFim) list = list.filter((ato) => ato.data_ato <= fFim);
     if (fBusca) {
-      const ref = parseRef(fBusca);
-      if (ref) list = list.filter((ato) => Number.parseInt(ato.livro, 10) === ref.livro && Number.parseInt(ato.pagina, 10) === ref.pagina);
-      else {
-        const term = fBusca.toLowerCase();
-        list = list.filter((ato) => padControle(ato.controle).includes(term) || ato.controle.includes(term));
-      }
+      list = list.filter((ato) => atoMatchesSearch(ato, fBusca, escreventesById));
     }
     return list;
-  }, [atos, fStatus, fCaptador, fInicio, fFim, fBusca]);
+  }, [atos, fStatus, fCaptador, fInicio, fFim, fBusca, escreventesById]);
 
   const toggleCol = (key) => {
     setSelectedCols((prev) => (
@@ -333,7 +329,7 @@ export default function Relatorios({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #dbe4f0', borderRadius: 14, padding: '10px 14px', background: '#f8fbff' }}>
                   <span style={{ fontSize: 16, color: '#1d4ed8' }}>⌕</span>
                   <input
-                    placeholder="Controle ou L42P15"
+                    placeholder="Controle, L42P15, tomador, tipo ou escrevente"
                     value={fBusca}
                     onChange={(e) => setFBusca(e.target.value)}
                     style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1e293b' }}

@@ -60,6 +60,19 @@ test.describe('smoke e2e', () => {
     await expect(page.getByRole('button', { name: 'Salvar ato' })).toHaveCount(0);
   });
 
+  test('admin usa busca textual em livros e relatórios de atos', async ({ page }) => {
+    await login(page, 'admin@cartorio.com', 'CartorioDev123');
+
+    await page.getByRole('button', { name: /Livros de Notas/ }).click();
+    await page.getByPlaceholder('Controle, L42P15, tomador, tipo ou escrevente...').fill('maria');
+    await expect(page.getByText('00044')).toBeVisible();
+
+    await page.getByRole('button', { name: /Relatórios/ }).click();
+    await page.getByRole('button', { name: /Atos/ }).click();
+    await page.getByPlaceholder('Controle, L42P15, tomador, tipo ou escrevente').fill('ana');
+    await expect(page.getByText('00047')).toBeVisible();
+  });
+
   test('escrevente vê escopo reduzido e acessa modal de declaração', async ({ page }) => {
     await login(page, 'joao@cartorio.com', 'CartorioDev123');
 
