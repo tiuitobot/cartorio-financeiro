@@ -95,6 +95,8 @@ test('enrichAtoFinance adiciona total, comissões e reembolso devido', () => {
     reembolso_tabeliao: 30,
     reembolso_escrevente: 40,
     valor_pago: 1240,
+    verificado_por: 'Financeiro',
+    verificado_em: '2026-03-20T10:00:00.000Z',
   });
 
   assert.equal(ato.total, 1220);
@@ -110,6 +112,8 @@ test('enrichAtoFinance normaliza override de comissão em shape estável', () =>
     reembolso_tabeliao: 0,
     reembolso_escrevente: 0,
     valor_pago: 100,
+    verificado_por: 'Financeiro',
+    verificado_em: '2026-03-20T10:00:00.000Z',
     comissao_override: [
       {
         escrevente: { id: 7, nome: 'Ana' },
@@ -151,4 +155,27 @@ test('enrichAtoFinance separa status calculado do status confirmado', () => {
   assert.equal(ato.status_calculado, 'pago');
   assert.equal(ato.status, 'pago_menor');
   assert.equal(ato.tem_pagamento_pendente_confirmacao, true);
+});
+
+test('enrichAtoFinance trata pagamento legado sem verificação como lançado e não conferido', () => {
+  const ato = enrichAtoFinance({
+    emolumentos: 1000,
+    repasses: 0,
+    issqn: 0,
+    reembolso_tabeliao: 0,
+    reembolso_escrevente: 0,
+    valor_pago: 600,
+    data_pagamento: '2026-03-20',
+    forma_pagamento: 'Pix',
+    verificado_por: null,
+    verificado_em: null,
+  });
+
+  assert.equal(ato.valor_pago_lancado, 600);
+  assert.equal(ato.valor_pago_confirmado, 0);
+  assert.equal(ato.pagamentos_lancados, 1);
+  assert.equal(ato.pagamentos_confirmados, 0);
+  assert.equal(ato.tem_pagamento_pendente_confirmacao, true);
+  assert.equal(ato.status_calculado, 'pago_menor');
+  assert.equal(ato.status, 'pendente');
 });

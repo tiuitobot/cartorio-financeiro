@@ -188,8 +188,8 @@ function enrichAtoFinance(ato) {
             valor: ato.valor_pago,
             data_pagamento: ato.data_pagamento,
             forma_pagamento: ato.forma_pagamento,
-            confirmado_financeiro: true,
-            confirmado_financeiro_por: ato.verificado_por || 'Legado',
+            confirmado_financeiro: Boolean(ato.verificado_por),
+            confirmado_financeiro_por: ato.verificado_por || null,
             confirmado_financeiro_em: ato.verificado_em || null,
           }]
         : []

@@ -26,6 +26,7 @@ test.describe('smoke e2e', () => {
     expect(await linhasAtos.count()).toBeGreaterThanOrEqual(6);
     await expect(page.getByRole('button', { name: /Novo Ato/ })).toBeVisible();
     await expect(page.getByText('00047')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Conferir|Conferido|Conferência/ }).first()).toBeVisible();
 
     await page.getByRole('button', { name: /Relatórios/ }).click();
     await expect(page.getByRole('button', { name: /Atos/ })).toBeVisible();
@@ -42,6 +43,20 @@ test.describe('smoke e2e', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Usuários' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Novo Usuário/ })).toBeVisible();
     await expect(page.getByText('admin@cartorio.com')).toBeVisible();
+  });
+
+  test('admin acessa modo dedicado de conferência financeira', async ({ page }) => {
+    await login(page, 'admin@cartorio.com', 'CartorioDev123');
+
+    await page.getByRole('button', { name: /Livros de Notas/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
+
+    const primeiraLinha = page.locator('table tbody tr').first();
+    await primeiraLinha.getByRole('button', { name: /Conferir|Conferido|Conferência/ }).click();
+
+    await expect(page.getByText('Modo de conferência financeira')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Salvar conferência financeira|Criar ato e salvar conferência/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Salvar ato' })).toHaveCount(0);
   });
 
   test('escrevente vê escopo reduzido e acessa modal de declaração', async ({ page }) => {

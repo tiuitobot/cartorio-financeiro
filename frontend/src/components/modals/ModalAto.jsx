@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FInput, FSel, Btn, ST, CurrencyInput } from '../ui/index.jsx';
 import { Badge } from '../ui/index.jsx';
-import { padControle, fmtLivro, fmtPagina, fmtRef, fmt } from '../../utils/format.js';
+import { padControle, fmtLivro, fmtPagina, fmtRef, fmt, fmtDate } from '../../utils/format.js';
 import { FORMAS_PAGAMENTO, normalizeFormaPagamento } from '../../constants.js';
 import ModalAjusteComissao from './ModalAjusteComissao.jsx';
 
@@ -213,6 +213,8 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
   const podeEditar = userRole === 'admin' || userRole === 'financeiro' || userRole === 'chefe_financeiro';
   const podeVerCom = podeEditar || (ato && [ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId));
   const hasPersistedAto = Boolean(form.id && typeof form.id === 'number' && form.id < 1e12);
+  const conferenceMode = ato?._openSection === 'financeiro';
+  const captadorAtual = escreventes.find((escrevente) => escrevente.id === form.captador_id);
 
   const syncPagamentos = (updater) => {
     setForm((current) => {
@@ -344,6 +346,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
         </div>
 
         <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {!conferenceMode && (
           <div>
             <ST>📋 Identificação do Ato</ST>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
@@ -370,7 +373,9 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
               {form.livro && form.pagina && <div style={{ background: '#eff6ff', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: '#1e40af', marginTop: 20 }}>Ref: {fmtRef(form.livro, form.pagina)}</div>}
             </div>
           </div>
+          )}
 
+          {!conferenceMode && (
           <div>
             <ST>👥 Escreventes Participantes</ST>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
@@ -380,7 +385,9 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
             </div>
             {!form.captador_id && <div style={{ marginTop: 8, padding: '8px 14px', borderRadius: 8, background: '#f1f5f9', fontSize: 12, color: '#64748b' }}>ℹ️ Sem captador indicado — nenhuma comissão será devida para este ato.</div>}
           </div>
+          )}
 
+          {!conferenceMode && (
           <div>
             <ST>💰 Composição de Valores</ST>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -407,9 +414,35 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
               </div>
             </div>
           </div>
+          )}
 
           <div ref={financeSectionRef}>
             <ST>🏦 Lançamentos e Conferência Financeira</ST>
+            {conferenceMode && (
+              <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 12, background: '#f8fafc', border: '1px solid #dbe4f0' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
+                  Modo de conferência financeira
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Controle</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: '#1e293b' }}>{padControle(form.controle)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Referência</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: '#1e293b' }}>{fmtRef(form.livro, form.pagina)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Captador</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: '#1e293b' }}>{captadorAtual?.nome || '—'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Total do ato</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, color: '#1e293b' }}>{fmt(total)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
                 Como testar esta etapa
@@ -562,7 +595,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
             </div>
           </div>
 
-          {podeVerCom && (
+          {!conferenceMode && podeVerCom && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '2px solid #e8edf5', paddingBottom: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>📊 Comissões Calculadas</span>
@@ -591,7 +624,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
             </div>
           )}
 
-          {ato && (
+          {!conferenceMode && ato && (
             <div>
               <ST>🔍 Histórico de Correções</ST>
               {form.correcoes.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13 }}>Nenhuma correção registrada.</div>}
@@ -621,7 +654,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Btn variant="secondary" onClick={onClose}>Cancelar</Btn>
-            {podeEditar && <Btn onClick={handleSalvarAto}>💾 Salvar ato</Btn>}
+            {!conferenceMode && podeEditar && <Btn onClick={handleSalvarAto}>💾 Salvar ato</Btn>}
           </div>
         </div>
       </div>

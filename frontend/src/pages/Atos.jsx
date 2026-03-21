@@ -415,13 +415,24 @@ export default function Atos({
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {podeConferirFinanceiro && (
-                        <Btn
-                          variant={a.tem_pagamento_pendente_confirmacao ? 'warning' : 'success'}
-                          onClick={() => onOpenAto({ ...a, _openSection: 'financeiro' })}
-                          style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}
-                        >
-                          {a.tem_pagamento_pendente_confirmacao ? '💼 Conferir' : '✅ Conferência'}
-                        </Btn>
+                        (() => {
+                          const conferenciaConcluida = Boolean(a.verificado_por);
+                          const temLancamentoFinanceiro =
+                            (Number(a.pagamentos_lancados || 0) > 0)
+                            || (Number(a.valor_pago_lancado || a.valor_pago || 0) > 0);
+
+                          return (
+                            <Btn
+                              variant={conferenciaConcluida ? 'success' : 'warning'}
+                              onClick={() => onOpenAto({ ...a, _openSection: 'financeiro' })}
+                              style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}
+                            >
+                              {conferenciaConcluida
+                                ? '✅ Conferido'
+                                : (temLancamentoFinanceiro ? '💼 Conferir' : '💼 Conferência')}
+                            </Btn>
+                          );
+                        })()
                       )}
                       <Btn variant="secondary" onClick={() => onOpenAto(a)} style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>🔍 Ver/Editar</Btn>
                     </div>
