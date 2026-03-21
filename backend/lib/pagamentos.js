@@ -216,7 +216,8 @@ function resolvePagamentoConfirmations(pagamentos = [], previousPagamentos = [],
 }
 
 async function replacePagamentosAto(client, atoId, pagamentos = []) {
-  const keepIds = pagamentos
+  const sanitizedPagamentos = pagamentos.filter((pagamento) => toMoney(pagamento.valor) > 0);
+  const keepIds = sanitizedPagamentos
     .map((pagamento) => Number.parseInt(pagamento.id, 10))
     .filter((id) => Number.isInteger(id));
 
@@ -229,7 +230,7 @@ async function replacePagamentosAto(client, atoId, pagamentos = []) {
     await client.query('DELETE FROM pagamentos_ato WHERE ato_id = $1', [atoId]);
   }
 
-  for (const pagamento of pagamentos) {
+  for (const pagamento of sanitizedPagamentos) {
     if (pagamento.id) {
       await client.query(
         `UPDATE pagamentos_ato
