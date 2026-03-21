@@ -68,6 +68,7 @@ export default function Atos({
   const reivRecusadas   = reivindicacoes.filter(r => r.escrevente_id === userId && r.status === 'recusada');
   const reivPendentes   = reivindicacoes.filter(r => r.status === 'pendente' && atos.find(a => a.id === r.ato_id && a.captador_id === userId));
   const reivContestadas = reivindicacoes.filter(r => r.status === 'contestada');
+  const podeConferirFinanceiro = ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole);
   const hasFiltrosAtivos = Boolean(
     busca || fCaptador || fEnvolvido || fStatus || fConfirmacao || fInicio || fFim || fValorMin || fValorMax
   );
@@ -412,7 +413,18 @@ export default function Atos({
                     </td>
                   ))}
                   <td style={{ padding: '11px 14px' }}>
-                    <Btn variant="secondary" onClick={() => onOpenAto(a)} style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>🔍 Ver/Editar</Btn>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {podeConferirFinanceiro && (
+                        <Btn
+                          variant={a.tem_pagamento_pendente_confirmacao ? 'warning' : 'success'}
+                          onClick={() => onOpenAto({ ...a, _openSection: 'financeiro' })}
+                          style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}
+                        >
+                          {a.tem_pagamento_pendente_confirmacao ? '💼 Conferir' : '✅ Conferência'}
+                        </Btn>
+                      )}
+                      <Btn variant="secondary" onClick={() => onOpenAto(a)} style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>🔍 Ver/Editar</Btn>
+                    </div>
                   </td>
                 </tr>
               ))}

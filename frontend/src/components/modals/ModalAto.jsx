@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FInput, FSel, Btn, ST, CurrencyInput } from '../ui/index.jsx';
 import { Badge } from '../ui/index.jsx';
 import { padControle, fmtLivro, fmtPagina, fmtRef, fmt } from '../../utils/format.js';
@@ -92,6 +92,7 @@ function normalizePagamento(pagamento = {}, index = 0) {
 }
 
 function buildInitialForm(ato) {
+  const { _openSection, ...atoBase } = ato || {};
   const pagamentosIniciais = Array.isArray(ato?.pagamentos) && ato.pagamentos.length
     ? ato.pagamentos.map((pagamento, index) => normalizePagamento(pagamento, index))
     : (ato?.valor_pago > 0 || ato?.data_pagamento || ato?.forma_pagamento
@@ -108,7 +109,7 @@ function buildInitialForm(ato) {
   const paymentState = buildPagamentoState(pagamentosIniciais);
 
   return ato ? {
-    ...ato,
+    ...atoBase,
     data_ato: ato.data_ato?.slice(0, 10) || '',
     pagamentos: pagamentosIniciais,
     valor_pago: paymentState.confirmado.valor_pago,
@@ -179,9 +180,18 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
   const [form, setForm] = useState(() => buildInitialForm(ato));
   const [corrMsg, setCorrMsg] = useState('');
   const [showAjusteComissao, setShowAjusteComissao] = useState(false);
+  const financeSectionRef = useRef(null);
 
   useEffect(() => {
     setForm(buildInitialForm(ato));
+  }, [ato]);
+
+  useEffect(() => {
+    if (ato?._openSection !== 'financeiro') return;
+    const timer = setTimeout(() => {
+      financeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => clearTimeout(timer);
   }, [ato]);
 
   const set = (k, v) => setForm((current) => ({ ...current, [k]: v }));
@@ -398,7 +408,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
             </div>
           </div>
 
-          <div>
+          <div ref={financeSectionRef}>
             <ST>🏦 Lançamentos e Conferência Financeira</ST>
             <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
