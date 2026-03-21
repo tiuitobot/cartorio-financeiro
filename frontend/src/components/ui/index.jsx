@@ -1,4 +1,5 @@
 import StickyXScroll from './StickyXScroll.jsx';
+export { FilterChip, ActiveFilterTag, Sheet } from './FilterControls.jsx';
 
 export const Badge = ({ label, color }) => (
   <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>

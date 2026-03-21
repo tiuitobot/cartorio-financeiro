@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Card, FInput, FSel, Btn, Badge, StickyXScroll } from '../components/ui/index.jsx';
+import { Card, FInput, FSel, Btn, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
 import { padControle, fmt, fmtDate, sColor, parseRef } from '../utils/format.js';
 import { exportXLSX, ALL_COLS } from '../utils/export.js';
 import { FORMAS_PAGAMENTO } from '../constants.js';
@@ -9,6 +9,13 @@ const hoje = new Date();
 const mesAtual = hoje.toISOString().slice(0, 7);
 const anoInicio = `${hoje.getFullYear()}-01-01`;
 const anoFim = `${hoje.getFullYear()}-12-31`;
+const STATUS_OPTIONS = [
+  { value: '', label: 'Todos' },
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'pago', label: 'Pago' },
+  { value: 'pago_menor', label: 'Pago a menor' },
+  { value: 'pago_maior', label: 'Pago a maior' },
+];
 
 const TH = ({ c }) => <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, color: '#475569', fontSize: 12, textTransform: 'uppercase', whiteSpace: 'nowrap', background: '#f1f5f9' }}>{c}</th>;
 const TD = ({ c, bold, color }) => <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontWeight: bold ? 700 : 400, color: color || '#1e293b' }}>{c}</td>;
@@ -26,6 +33,7 @@ export default function Relatorios({
   const [tab, setTab] = useState('atos');
   const [selectedCols, setSelectedCols] = useState(() => ALL_COLS.filter((item) => item.def).map((item) => item.key));
   const [showColPanel, setShowColPanel] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [fStatus, setFStatus] = useState('');
   const [fCaptador, setFCaptador] = useState('');
   const [fInicio, setFInicio] = useState('');
@@ -68,6 +76,14 @@ export default function Relatorios({
     ));
   };
 
+  const resetAtosFilters = () => {
+    setFStatus('');
+    setFCaptador('');
+    setFInicio('');
+    setFFim('');
+    setFBusca('');
+  };
+
   const handleExportAtos = () => {
     const rows = atosFiltrados.map((ato) => {
       const row = {};
@@ -107,6 +123,17 @@ export default function Relatorios({
     return { ...escrevente, lancado, pago, saldo: lancado - pago };
   }).filter((item) => item.lancado > 0 || item.pago > 0);
 
+  const captadorNome = escreventes.find((item) => item.id === Number.parseInt(fCaptador, 10))?.nome;
+  const hasAtosFilters = Boolean(fStatus || fCaptador || fInicio || fFim || fBusca);
+  const advancedAtosFilterCount = [fCaptador, fInicio, fFim].filter(Boolean).length;
+  const activeAtosFilters = [
+    fBusca ? { key: 'busca', label: `Busca: ${fBusca}`, onRemove: () => setFBusca('') } : null,
+    fStatus ? { key: 'status', label: `Status: ${STATUS_OPTIONS.find((item) => item.value === fStatus)?.label}`, onRemove: () => setFStatus('') } : null,
+    fCaptador ? { key: 'captador', label: `Captador: ${captadorNome || fCaptador}`, onRemove: () => setFCaptador('') } : null,
+    fInicio ? { key: 'inicio', label: `De: ${fInicio}`, onRemove: () => setFInicio('') } : null,
+    fFim ? { key: 'fim', label: `Até: ${fFim}`, onRemove: () => setFFim('') } : null,
+  ].filter(Boolean);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', borderRadius: 12, padding: 4 }}>
@@ -117,34 +144,151 @@ export default function Relatorios({
 
       {tab === 'atos' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Card>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <FInput label="Busca" value={fBusca} onChange={(e) => setFBusca(e.target.value)} style={{ width: 220 }} placeholder="Controle ou L42P15" />
-              <FSel label="Status" options={[{ value: '', label: 'Todos' }, { value: 'pendente', label: 'Pendente' }, { value: 'pago', label: 'Pago' }, { value: 'pago_menor', label: 'Pago a menor' }, { value: 'pago_maior', label: 'Pago a maior' }]} value={fStatus} onChange={(e) => setFStatus(e.target.value)} style={{ width: 160 }} />
-              <FSel label="Captador" options={[{ value: '', label: 'Todos' }, ...escreventes.map((item) => ({ value: item.id, label: item.nome }))]} value={fCaptador} onChange={(e) => setFCaptador(e.target.value)} style={{ width: 180 }} />
-              <FInput label="Início" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} style={{ width: 145 }} />
-              <FInput label="Fim" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} style={{ width: 145 }} />
-              <Btn variant="secondary" onClick={() => setShowColPanel((value) => !value)} style={{ padding: '9px 14px', fontSize: 13 }}>⚙️ Colunas ({selectedCols.length})</Btn>
-              <Btn onClick={handleExportAtos} style={{ padding: '9px 14px', fontSize: 13 }}>📥 Excel</Btn>
+          <Card style={{ padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e3a5f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Filtros do Relatório</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                  Busca e status ficam visíveis. Captador, datas e colunas abrem em painéis laterais.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <Btn variant="secondary" onClick={() => setShowFilterPanel(true)} style={{ padding: '9px 12px', fontSize: 12 }}>
+                  Filtros {advancedAtosFilterCount > 0 ? `(${advancedAtosFilterCount})` : ''}
+                </Btn>
+                <Btn variant="secondary" onClick={() => setShowColPanel(true)} style={{ padding: '9px 12px', fontSize: 12 }}>
+                  ⚙️ Colunas ({selectedCols.length})
+                </Btn>
+                <Btn onClick={handleExportAtos} style={{ padding: '9px 12px', fontSize: 12 }}>
+                  📥 Excel
+                </Btn>
+                {hasAtosFilters && (
+                  <Btn variant="secondary" onClick={resetAtosFilters} style={{ padding: '9px 12px', fontSize: 12 }}>
+                    Limpar tudo
+                  </Btn>
+                )}
+              </div>
             </div>
-            {showColPanel && (
-              <div style={{ marginTop: 16, padding: 16, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontWeight: 700, color: '#1e3a5f', marginBottom: 10, fontSize: 13 }}>Selecionar colunas:</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-                  {ALL_COLS.map((coluna) => (
-                    <label key={coluna.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
-                      {coluna.label}
-                    </label>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 1.25fr) minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 16, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>Busca principal</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #dbe4f0', borderRadius: 14, padding: '10px 14px', background: '#f8fbff' }}>
+                  <span style={{ fontSize: 16, color: '#1d4ed8' }}>⌕</span>
+                  <input
+                    placeholder="Controle ou L42P15"
+                    value={fBusca}
+                    onChange={(e) => setFBusca(e.target.value)}
+                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1e293b' }}
+                  />
+                </div>
+                <div style={{ marginTop: 10, fontSize: 12, color: '#64748b' }}>
+                  {atosFiltrados.length} resultado(s) com os filtros atuais.
+                </div>
+              </div>
+              <div style={{ background: '#ffffff', border: '1px solid #dbe4f0', borderRadius: 18, padding: 14, boxShadow: 'inset 0 1px 0 #ffffff, 0 10px 24px #0f2a5508' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Status</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {STATUS_OPTIONS.map((option) => (
+                    <FilterChip key={option.value || 'todos'} active={fStatus === option.value} onClick={() => setFStatus(option.value)}>
+                      {option.label}
+                    </FilterChip>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <Btn variant="secondary" onClick={() => setSelectedCols(ALL_COLS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Todas</Btn>
-                  <Btn variant="secondary" onClick={() => setSelectedCols(ALL_COLS.filter((coluna) => coluna.def).map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '6px 12px' }}>Padrão</Btn>
-                </div>
+              </div>
+            </div>
+
+            {activeAtosFilters.length > 0 && (
+              <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingTop: 14, borderTop: '1px dashed #dbe4f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7 }}>Filtros ativos</div>
+                {activeAtosFilters.map((filter) => (
+                  <ActiveFilterTag key={filter.key} label={filter.label} onRemove={filter.onRemove} />
+                ))}
               </div>
             )}
           </Card>
+
+          <Sheet
+            open={showFilterPanel}
+            title="Filtros avançados"
+            subtitle="Refine o relatório por captador e período sem poluir a área principal."
+            onClose={() => setShowFilterPanel(false)}
+            footer={(
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <Btn variant="secondary" onClick={resetAtosFilters} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Limpar tudo
+                </Btn>
+                <Btn variant="secondary" onClick={() => setShowFilterPanel(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Fechar
+                </Btn>
+              </div>
+            )}
+          >
+            <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Pessoa</div>
+                <FSel
+                  label="Captador"
+                  options={[{ value: '', label: 'Todos' }, ...escreventes.map((item) => ({ value: item.id, label: item.nome }))]}
+                  value={fCaptador}
+                  onChange={(e) => setFCaptador(e.target.value)}
+                />
+              </div>
+              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Período</div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <FInput label="Data inicial" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} />
+                  <FInput label="Data final" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} />
+                </div>
+              </div>
+            </div>
+          </Sheet>
+
+          <Sheet
+            open={showColPanel}
+            title="Colunas visíveis"
+            subtitle="Ajuste a tabela do relatório sem criar uma grade fixa pesada."
+            onClose={() => setShowColPanel(false)}
+            footer={(
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Btn variant="secondary" onClick={() => setSelectedCols(ALL_COLS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '8px 12px' }}>
+                    Todas
+                  </Btn>
+                  <Btn variant="secondary" onClick={() => setSelectedCols(ALL_COLS.filter((coluna) => coluna.def).map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '8px 12px' }}>
+                    Padrão
+                  </Btn>
+                </div>
+                <Btn variant="secondary" onClick={() => setShowColPanel(false)} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  Fechar
+                </Btn>
+              </div>
+            )}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
+              {ALL_COLS.map((coluna) => (
+                <label
+                  key={coluna.key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    border: selectedCols.includes(coluna.key) ? '1px solid #93c5fd' : '1px solid #e2e8f0',
+                    borderRadius: 14,
+                    padding: '12px 13px',
+                    background: selectedCols.includes(coluna.key) ? '#eff6ff' : '#fff',
+                    color: selectedCols.includes(coluna.key) ? '#1d4ed8' : '#334155',
+                    fontWeight: selectedCols.includes(coluna.key) ? 700 : 500,
+                  }}
+                >
+                  <input type="checkbox" checked={selectedCols.includes(coluna.key)} onChange={() => toggleCol(coluna.key)} style={{ width: 14, height: 14 }} />
+                  {coluna.label}
+                </label>
+              ))}
+            </div>
+          </Sheet>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             {[

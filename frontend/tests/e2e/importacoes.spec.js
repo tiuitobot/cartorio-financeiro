@@ -94,7 +94,7 @@ test.describe('importações e2e', () => {
     await page.getByRole('button', { name: /Livros de Notas/ }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
 
-    await page.locator('input[placeholder="Controle ou L42P15..."]').fill('991101');
+    await page.locator('input[placeholder*="Controle"]').fill('991101');
     await expect(page.locator('table tbody')).toContainText('991101');
 
     await page.getByRole('button', { name: /Relatórios/ }).click();
@@ -115,7 +115,7 @@ test.describe('importações e2e', () => {
 
     await page.getByRole('button', { name: /Livros de Notas/ }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
-    await page.locator('input[placeholder="Controle ou L42P15..."]').fill('991101');
+    await page.locator('input[placeholder*="Controle"]').fill('991101');
     await expect(page.locator('table tbody')).not.toContainText('991101');
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Card, Btn, FInput, FSel, Badge, StickyXScroll } from '../components/ui/index.jsx';
+import { Card, Btn, FInput, FSel, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
 import { padControle, fmtRef, fmtDate, fmt, sLabel, sColor } from '../utils/format.js';
 
 const COLUNAS_PADRAO = ['controle', 'referencia', 'data', 'captador', 'emolumentos', 'total', 'pago', 'status'];
@@ -29,117 +29,6 @@ const CONFERENCIA_OPTIONS = [
   { value: 'confirmado', label: 'Conferido' },
   { value: 'nao_confirmado', label: 'Não conferido' },
 ];
-
-function FilterChip({ active, children, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        border: active ? '1px solid #1d4ed8' : '1px solid #dbe4f0',
-        background: active ? 'linear-gradient(135deg,#1d4ed8,#2563eb)' : '#fff',
-        color: active ? '#fff' : '#475569',
-        boxShadow: active ? '0 8px 18px #2563eb22' : 'none',
-        borderRadius: 999,
-        padding: '8px 14px',
-        fontSize: 13,
-        fontWeight: 700,
-        cursor: 'pointer',
-        transition: 'all .15s ease',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ActiveFilterTag({ label, onRemove }) {
-  return (
-    <button
-      onClick={onRemove}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        border: '1px solid #bfdbfe',
-        background: '#eff6ff',
-        color: '#1d4ed8',
-        borderRadius: 999,
-        padding: '6px 10px',
-        fontSize: 12,
-        fontWeight: 700,
-        cursor: 'pointer',
-      }}
-    >
-      <span>{label}</span>
-      <span style={{ fontSize: 11 }}>✕</span>
-    </button>
-  );
-}
-
-function Sheet({ open, title, subtitle, onClose, children, footer }) {
-  if (!open) return null;
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: '#0f172a66',
-        backdropFilter: 'blur(3px)',
-        zIndex: 1000,
-        display: 'flex',
-        justifyContent: 'flex-end',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 'min(420px, 100vw)',
-          height: '100%',
-          background: 'linear-gradient(180deg,#ffffff,#f8fbff)',
-          borderLeft: '1px solid #dbe4f0',
-          boxShadow: '-18px 0 40px #0f172a22',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <div style={{ padding: '22px 20px 16px', borderBottom: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{title}</div>
-              {subtitle && <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>{subtitle}</div>}
-            </div>
-            <button
-              onClick={onClose}
-              style={{
-                border: '1px solid #dbe4f0',
-                background: '#fff',
-                color: '#475569',
-                borderRadius: 12,
-                width: 36,
-                height: 36,
-                cursor: 'pointer',
-                fontSize: 16,
-                fontWeight: 700,
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
-          {children}
-        </div>
-        {footer && (
-          <div style={{ padding: 20, borderTop: '1px solid #e2e8f0', background: '#fff' }}>
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function Atos({
   atos, escreventes, reivindicacoes, userRole, userId,
