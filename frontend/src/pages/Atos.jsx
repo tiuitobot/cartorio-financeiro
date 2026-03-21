@@ -25,7 +25,14 @@ export default function Atos({
 }) {
   const storageKey = `colunas_livros_${userStorageKey || 'anon'}`;
   const [showColPanel, setShowColPanel] = useState(false);
+  const [fCaptador, setFCaptador] = useState('');
   const [fEnvolvido, setFEnvolvido] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fConfirmacao, setFConfirmacao] = useState('');
+  const [fInicio, setFInicio] = useState('');
+  const [fFim, setFFim] = useState('');
+  const [fValorMin, setFValorMin] = useState('');
+  const [fValorMax, setFValorMax] = useState('');
   const [selectedCols, setSelectedCols] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey) || 'null');
@@ -50,10 +57,38 @@ export default function Atos({
   const reivContestadas = reivindicacoes.filter(r => r.status === 'contestada');
 
   const atosListados = useMemo(() => {
-    if (!fEnvolvido) return atos;
-    const eid = Number.parseInt(fEnvolvido, 10);
-    return atos.filter((ato) => [ato.captador_id, ato.executor_id, ato.signatario_id].includes(eid));
-  }, [atos, fEnvolvido]);
+    return atos.filter((ato) => {
+      if (fCaptador && ato.captador_id !== Number.parseInt(fCaptador, 10)) return false;
+      if (fEnvolvido) {
+        const envolvidoId = Number.parseInt(fEnvolvido, 10);
+        if (![ato.captador_id, ato.executor_id, ato.signatario_id].includes(envolvidoId)) return false;
+      }
+      if (fStatus && ato.status !== fStatus) return false;
+      if (fConfirmacao === 'confirmado' && !ato.verificado_por) return false;
+      if (fConfirmacao === 'nao_confirmado' && ato.verificado_por) return false;
+
+      const dataAto = ato.data_ato?.slice(0, 10) || '';
+      if (fInicio && (!dataAto || dataAto < fInicio)) return false;
+      if (fFim && (!dataAto || dataAto > fFim)) return false;
+
+      if (fValorMin && Number(ato.total || 0) < Number(fValorMin)) return false;
+      if (fValorMax && Number(ato.total || 0) > Number(fValorMax)) return false;
+
+      return true;
+    });
+  }, [atos, fCaptador, fEnvolvido, fStatus, fConfirmacao, fInicio, fFim, fValorMin, fValorMax]);
+
+  const resetFiltros = () => {
+    setFCaptador('');
+    setFEnvolvido('');
+    setFStatus('');
+    setFConfirmacao('');
+    setFInicio('');
+    setFFim('');
+    setFValorMin('');
+    setFValorMax('');
+    onBusca('');
+  };
 
   const renderCell = (ato, key) => {
     const capt = escreventes.find((item) => item.id === ato.captador_id);
@@ -145,14 +180,56 @@ export default function Atos({
       <div style={{ marginBottom: 18, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <FInput placeholder="Controle ou L42P15..." value={busca} onChange={e => onBusca(e.target.value)} style={{ width: 280 }} />
         <FSel
+          label="Status"
+          options={[
+            { value: '', label: 'Todos' },
+            { value: 'pendente', label: 'Pendente' },
+            { value: 'pago', label: 'Pago' },
+            { value: 'pago_menor', label: 'Pago a menor' },
+            { value: 'pago_maior', label: 'Pago a maior' },
+          ]}
+          value={fStatus}
+          onChange={(e) => setFStatus(e.target.value)}
+          style={{ width: 180 }}
+        />
+        <FSel
+          label="Captador"
+          options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
+          value={fCaptador}
+          onChange={(e) => setFCaptador(e.target.value)}
+          style={{ width: 220 }}
+        />
+        <FSel
           label="Escrevente envolvido"
           options={[{ value: '', label: 'Todos' }, ...escreventes.map((e) => ({ value: e.id, label: e.nome }))]}
           value={fEnvolvido}
           onChange={(e) => setFEnvolvido(e.target.value)}
           style={{ width: 220 }}
         />
+        <FSel
+          label="Recebimento"
+          options={[
+            { value: '', label: 'Todos' },
+            { value: 'confirmado', label: 'Confirmado' },
+            { value: 'nao_confirmado', label: 'Não confirmado' },
+          ]}
+          value={fConfirmacao}
+          onChange={(e) => setFConfirmacao(e.target.value)}
+          style={{ width: 180 }}
+        />
+        <FInput label="Início" type="date" value={fInicio} onChange={(e) => setFInicio(e.target.value)} style={{ width: 160 }} />
+        <FInput label="Fim" type="date" value={fFim} onChange={(e) => setFFim(e.target.value)} style={{ width: 160 }} />
+        <FInput label="Total mínimo" type="number" min="0" step="0.01" value={fValorMin} onChange={(e) => setFValorMin(e.target.value)} style={{ width: 150 }} />
+        <FInput label="Total máximo" type="number" min="0" step="0.01" value={fValorMax} onChange={(e) => setFValorMax(e.target.value)} style={{ width: 150 }} />
         <Btn variant="secondary" onClick={() => setShowColPanel((value) => !value)} style={{ padding: '9px 12px', fontSize: 12 }}>⚙️ Colunas ({selectedCols.length})</Btn>
-        {busca && <Btn variant="secondary" onClick={() => onBusca('')} style={{ padding: '9px 12px', fontSize: 12 }}>✕</Btn>}
+        {selectedCols.length !== TODAS_COLUNAS.length && (
+          <Btn variant="secondary" onClick={() => setSelectedCols(TODAS_COLUNAS.map((coluna) => coluna.key))} style={{ padding: '9px 12px', fontSize: 12 }}>
+            Ver todas as colunas
+          </Btn>
+        )}
+        {(busca || fCaptador || fEnvolvido || fStatus || fConfirmacao || fInicio || fFim || fValorMin || fValorMax) && (
+          <Btn variant="secondary" onClick={resetFiltros} style={{ padding: '9px 12px', fontSize: 12 }}>Limpar filtros</Btn>
+        )}
       </div>
 
       {showColPanel && (
