@@ -81,6 +81,7 @@ export default function App() {
           ...item,
           valor: toMoneyNumber(item.valor),
           forma_pagamento: normalizeFormaPagamento(item.forma_pagamento),
+          confirmado_financeiro: item.confirmado_financeiro === true,
         }))
       : []
   ), []);
@@ -94,8 +95,17 @@ export default function App() {
     reembolso_tabeliao: toMoneyNumber(ato.reembolso_tabeliao),
     reembolso_escrevente: toMoneyNumber(ato.reembolso_escrevente),
     valor_pago: toMoneyNumber(ato.valor_pago),
+    valor_pago_confirmado: toMoneyNumber(ato.valor_pago_confirmado ?? ato.valor_pago),
+    valor_pago_lancado: toMoneyNumber(ato.valor_pago_lancado),
     reembolso_devido_escrevente: toMoneyNumber(ato.reembolso_devido_escrevente),
     forma_pagamento: normalizeFormaPagamento(ato.forma_pagamento),
+    forma_pagamento_confirmado: normalizeFormaPagamento(ato.forma_pagamento_confirmado ?? ato.forma_pagamento),
+    forma_pagamento_lancado: normalizeFormaPagamento(ato.forma_pagamento_lancado),
+    status_calculado: ato.status_calculado || ato.status,
+    pagamentos_lancados: Number.parseInt(ato.pagamentos_lancados || 0, 10) || 0,
+    pagamentos_confirmados: Number.parseInt(ato.pagamentos_confirmados || 0, 10) || 0,
+    pagamentos_pendentes_confirmacao: Number.parseInt(ato.pagamentos_pendentes_confirmacao || 0, 10) || 0,
+    tem_pagamento_pendente_confirmacao: ato.tem_pagamento_pendente_confirmacao === true,
     pagamentos: normalizePagamentos(ato.pagamentos),
     comissoes: normalizeComissoes(ato.comissoes),
   }), [normalizeComissoes, normalizePagamentos]);

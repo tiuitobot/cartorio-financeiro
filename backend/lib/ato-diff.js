@@ -58,6 +58,7 @@ function formatPaymentSummary(pagamentos = []) {
     const parts = [formatMoney(normalized.valor)];
     if (normalized.data_pagamento) parts.push(`em ${normalized.data_pagamento}`);
     if (normalized.forma_pagamento) parts.push(`via ${normalized.forma_pagamento}`);
+    parts.push(normalized.confirmado_financeiro ? '[conferido]' : '[aguardando conferência]');
     if (normalized.notas) parts.push(`(${normalized.notas})`);
     return parts.join(' ');
   }).join(' | ');

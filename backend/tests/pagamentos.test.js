@@ -1,81 +1,44 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  normalizePagamentosPayload,
-  summarizePagamentos,
-  serializePagamentoList,
+  buildPagamentoState,
+  resolvePagamentoConfirmations,
 } = require('../lib/pagamentos');
-const { buildAtoDiffMessage } = require('../lib/ato-diff');
 
-test('normalizePagamentosPayload usa legado quando pagamentos[] não vier', () => {
-  const pagamentos = normalizePagamentosPayload(null, {
-    valor_pago: 150.5,
-    data_pagamento: '2026-03-20',
-    forma_pagamento: 'PIX',
-  });
-
-  assert.deepEqual(pagamentos, [
-    {
-      id: null,
-      valor: 150.5,
-      data_pagamento: '2026-03-20',
-      forma_pagamento: 'Pix',
-      notas: null,
-    },
+test('buildPagamentoState separa lançado de confirmado', () => {
+  const state = buildPagamentoState([
+    { valor: 600, data_pagamento: '2026-03-20', forma_pagamento: 'Pix', confirmado_financeiro: true },
+    { valor: 400, data_pagamento: '2026-03-21', forma_pagamento: 'Boleto', confirmado_financeiro: false },
   ]);
+
+  assert.equal(state.lancado.valor_pago, 1000);
+  assert.equal(state.confirmado.valor_pago, 600);
+  assert.equal(state.totalCount, 2);
+  assert.equal(state.confirmedCount, 1);
+  assert.equal(state.pendingCount, 1);
+  assert.equal(state.allConfirmed, false);
 });
 
-test('summarizePagamentos consolida valor, última data e forma múltipla', () => {
-  const summary = summarizePagamentos([
-    { valor: 100, data_pagamento: '2026-03-10', forma_pagamento: 'Pix' },
-    { valor: 50, data_pagamento: '2026-03-15', forma_pagamento: 'TED' },
-  ]);
+test('resolvePagamentoConfirmations preserva carimbo de confirmação existente', () => {
+  const pagamentos = resolvePagamentoConfirmations(
+    [{ id: 12, valor: 500, confirmado_financeiro: true }],
+    [{ id: 12, valor: 500, confirmado_financeiro: true, confirmado_financeiro_por: 'Financeiro', confirmado_financeiro_em: '2026-03-20T12:00:00.000Z' }],
+    { nome: 'Admin' }
+  );
 
-  assert.deepEqual(summary, {
-    valor_pago: 150,
-    data_pagamento: '2026-03-15',
-    forma_pagamento: 'Múltiplo',
-  });
+  assert.equal(pagamentos[0].confirmado_financeiro, true);
+  assert.equal(pagamentos[0].confirmado_financeiro_por, 'Financeiro');
+  assert.equal(pagamentos[0].confirmado_financeiro_em, '2026-03-20T12:00:00.000Z');
 });
 
-test('serializePagamentoList ignora ordem de entrada e estabiliza comparação', () => {
-  const first = serializePagamentoList([
-    { valor: 50, data_pagamento: '2026-03-15', forma_pagamento: 'TED' },
-    { valor: 100, data_pagamento: '2026-03-10', forma_pagamento: 'Pix' },
-  ]);
-  const second = serializePagamentoList([
-    { valor: 100, data_pagamento: '2026-03-10', forma_pagamento: 'Pix' },
-    { valor: 50, data_pagamento: '2026-03-15', forma_pagamento: 'TED' },
-  ]);
+test('resolvePagamentoConfirmations carimba nova confirmação com o ator atual', () => {
+  const pagamentos = resolvePagamentoConfirmations(
+    [{ valor: 250, confirmado_financeiro: true }],
+    [],
+    { nome: 'Chefe Financeiro' }
+  );
 
-  assert.equal(first, second);
-});
-
-test('buildAtoDiffMessage descreve mudança de campo e de pagamentos', () => {
-  const result = buildAtoDiffMessage({
-    previousAto: {
-      captador_id: 1,
-      emolumentos: 100,
-      notas: null,
-    },
-    nextAto: {
-      captador_id: 2,
-      emolumentos: 150,
-      notas: 'Ajuste manual',
-    },
-    previousPagamentos: [
-      { valor: 100, data_pagamento: '2026-03-10', forma_pagamento: 'Pix' },
-    ],
-    nextPagamentos: [
-      { valor: 60, data_pagamento: '2026-03-10', forma_pagamento: 'Pix' },
-      { valor: 90, data_pagamento: '2026-03-12', forma_pagamento: 'TED' },
-    ],
-    escreventesById: { 1: 'Ana', 2: 'Bruno' },
-    actorName: 'Financeiro',
-  });
-
-  assert.equal(result.autor, 'Financeiro');
-  assert.match(result.mensagem, /Captador: Ana -> Bruno/);
-  assert.match(result.mensagem, /Emolumentos:/);
-  assert.match(result.mensagem, /Pagamentos:/);
+  assert.equal(pagamentos[0].confirmado_financeiro, true);
+  assert.equal(pagamentos[0].confirmado_financeiro_por, 'Chefe Financeiro');
+  assert.ok(pagamentos[0].confirmado_financeiro_em);
 });

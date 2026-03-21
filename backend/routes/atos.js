@@ -5,14 +5,14 @@ const { calcStatus, enrichAtoFinance } = require('../lib/finance');
 const {
   formatDatePtBr,
   normalizeNullableString,
-  resolveVerificationStamp,
 } = require('../lib/audit');
 const {
   toMoney,
   normalizeFormaPagamento,
   normalizePagamentosPayload,
   validatePagamentos,
-  summarizePagamentos,
+  buildPagamentoState,
+  resolvePagamentoConfirmations,
   replacePagamentosAto,
 } = require('../lib/pagamentos');
 const { buildAtoDiffMessage } = require('../lib/ato-diff');
@@ -29,15 +29,22 @@ function toOptionalInt(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function normalizeAtoPayload(payload, previousAto = null) {
+function normalizeAtoPayload(payload, options = {}) {
+  const previousAto = options.previousAto || null;
+  const previousPagamentos = options.previousPagamentos || [];
+  const actor = options.actor || {};
   const emolumentos = toMoney(payload.emolumentos);
   const repasses = toMoney(payload.repasses);
   const issqn = toMoney(payload.issqn);
   const reembolsoTabeliao = toMoney(payload.reembolso_tabeliao);
   const reembolsoEscrevente = toMoney(payload.reembolso_escrevente);
-  const pagamentos = normalizePagamentosPayload(payload.pagamentos, payload);
-  const pagamentosSummary = summarizePagamentos(pagamentos);
-  const verificadoPor = normalizeNullableString(payload.verificado_por);
+  const pagamentosNormalizados = normalizePagamentosPayload(payload.pagamentos, payload);
+  const pagamentos = resolvePagamentoConfirmations(pagamentosNormalizados, previousPagamentos, actor);
+  const paymentState = buildPagamentoState(pagamentos);
+  const valorPagoConfirmado = paymentState.confirmado.valor_pago;
+  const verificadoEm = paymentState.allConfirmed && paymentState.verificado_em
+    ? formatDatePtBr(new Date(paymentState.verificado_em))
+    : null;
 
   return {
     controle: normalizeControle(payload.controle),
@@ -56,9 +63,9 @@ function normalizeAtoPayload(payload, previousAto = null) {
     reembolso_escrevente: reembolsoEscrevente,
     escrevente_reembolso_id: reembolsoEscrevente > 0 ? toOptionalInt(payload.escrevente_reembolso_id) : null,
     pagamentos,
-    valor_pago: pagamentosSummary.valor_pago,
-    data_pagamento: pagamentosSummary.data_pagamento,
-    forma_pagamento: pagamentosSummary.forma_pagamento,
+    valor_pago: valorPagoConfirmado,
+    data_pagamento: paymentState.confirmado.data_pagamento,
+    forma_pagamento: paymentState.confirmado.forma_pagamento,
     controle_cheques: normalizeNullableString(payload.controle_cheques),
     status: calcStatus(
       emolumentos,
@@ -66,10 +73,10 @@ function normalizeAtoPayload(payload, previousAto = null) {
       issqn,
       reembolsoTabeliao,
       reembolsoEscrevente,
-      pagamentosSummary.valor_pago
+      valorPagoConfirmado
     ),
-    verificado_por: verificadoPor,
-    verificado_em: resolveVerificationStamp(verificadoPor, previousAto),
+    verificado_por: paymentState.allConfirmed ? paymentState.verificado_por : null,
+    verificado_em: paymentState.allConfirmed ? verificadoEm : null,
     comissao_override: Array.isArray(payload.comissao_override) && payload.comissao_override.length
       ? JSON.stringify(payload.comissao_override)
       : null,
@@ -156,7 +163,18 @@ const ATO_SELECT = `
     COALESCE((
       SELECT json_agg(row_to_json(pgto) ORDER BY pgto.data_pagamento NULLS LAST, pgto.id)
       FROM (
-        SELECT p.id, p.ato_id, p.valor, p.data_pagamento, p.forma_pagamento, p.notas, p.created_at, p.updated_at
+        SELECT
+          p.id,
+          p.ato_id,
+          p.valor,
+          p.data_pagamento,
+          p.forma_pagamento,
+          p.notas,
+          p.confirmado_financeiro,
+          p.confirmado_financeiro_por,
+          p.confirmado_financeiro_em,
+          p.created_at,
+          p.updated_at
         FROM pagamentos_ato p
         WHERE p.ato_id = a.id
       ) pgto
@@ -284,12 +302,12 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // ── POST /api/atos ────────────────────────────────────────────────────────────
 router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_financeiro'), async (req, res) => {
-  const atoPayload = normalizeAtoPayload(req.body);
-  const validationError = validateAtoPayload(atoPayload);
-  if (validationError) return res.status(400).json({ erro: validationError });
-
   const client = await db.connect();
   try {
+    const atoPayload = normalizeAtoPayload(req.body, { actor: req.user });
+    const validationError = validateAtoPayload(atoPayload);
+    if (validationError) return res.status(400).json({ erro: validationError });
+
     await client.query('BEGIN');
     const { rows } = await client.query(
       `INSERT INTO atos(controle,livro,pagina,data_ato,tipo_ato,nome_tomador,captador_id,executor_id,signatario_id,
@@ -335,14 +353,19 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ erro: 'Ato não encontrado' });
     }
     const { rows: currentPagamentos } = await client.query(
-      `SELECT id, ato_id, valor, data_pagamento, forma_pagamento, notas
+      `SELECT id, ato_id, valor, data_pagamento, forma_pagamento, notas,
+              confirmado_financeiro, confirmado_financeiro_por, confirmado_financeiro_em
          FROM pagamentos_ato
         WHERE ato_id = $1
         ORDER BY data_pagamento NULLS LAST, id`,
       [id]
     );
 
-    const atoPayload = normalizeAtoPayload(req.body, currentRows[0]);
+    const atoPayload = normalizeAtoPayload(req.body, {
+      previousAto: currentRows[0],
+      previousPagamentos: currentPagamentos,
+      actor: req.user,
+    });
     const validationError = validateAtoPayload(atoPayload);
     if (validationError) {
       await client.query('ROLLBACK');

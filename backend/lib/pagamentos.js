@@ -18,6 +18,30 @@ function normalizeDateValue(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function normalizeTimestampValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+
+  const normalized = normalizeNullableString(value);
+  if (!normalized) return null;
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return normalized;
+  return parsed.toISOString();
+}
+
+function normalizeBooleanLike(value) {
+  if (value === true || value === false) return value;
+  if (value === 1 || value === '1') return true;
+  if (value === 0 || value === '0') return false;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', 'sim', 'yes'].includes(normalized)) return true;
+    if (['false', 'nao', 'não', 'no'].includes(normalized)) return false;
+  }
+  return null;
+}
+
 function normalizeFormaPagamento(value) {
   const text = normalizeNullableString(value);
   if (!text) return null;
@@ -56,6 +80,9 @@ function normalizePagamentoEntry(entry = {}) {
     data_pagamento: normalizeDateValue(entry.data_pagamento || entry.data),
     forma_pagamento: normalizeFormaPagamento(entry.forma_pagamento),
     notas: normalizeNullableString(entry.notas),
+    confirmado_financeiro: normalizeBooleanLike(entry.confirmado_financeiro) === true,
+    confirmado_financeiro_por: normalizeNullableString(entry.confirmado_financeiro_por),
+    confirmado_financeiro_em: normalizeTimestampValue(entry.confirmado_financeiro_em),
   };
 }
 
@@ -94,14 +121,17 @@ function validatePagamentos(pagamentos = []) {
   return null;
 }
 
-function summarizePagamentos(pagamentos = []) {
-  const valorPago = pagamentos.reduce((sum, pagamento) => sum + toMoney(pagamento.valor), 0);
-  const datas = pagamentos
+function summarizePagamentos(pagamentos = [], options = {}) {
+  const list = options.confirmedOnly
+    ? pagamentos.filter((pagamento) => normalizeBooleanLike(pagamento.confirmado_financeiro) === true)
+    : pagamentos;
+  const valorPago = list.reduce((sum, pagamento) => sum + toMoney(pagamento.valor), 0);
+  const datas = list
     .map((pagamento) => pagamento.data_pagamento)
     .filter(Boolean)
     .sort();
   const formas = [...new Set(
-    pagamentos
+    list
       .map((pagamento) => pagamento.forma_pagamento)
       .filter(Boolean)
   )];
@@ -113,19 +143,131 @@ function summarizePagamentos(pagamentos = []) {
   };
 }
 
+function buildPagamentoState(pagamentos = []) {
+  const normalizedPagamentos = pagamentos.map((pagamento) => normalizePagamentoEntry(pagamento));
+  const pagamentosConfirmados = normalizedPagamentos.filter((pagamento) => pagamento.confirmado_financeiro);
+  const confirmadosComTimestamp = pagamentosConfirmados
+    .filter((pagamento) => pagamento.confirmado_financeiro_em)
+    .sort((a, b) => String(a.confirmado_financeiro_em).localeCompare(String(b.confirmado_financeiro_em)));
+  const lastConfirmed = confirmadosComTimestamp[confirmadosComTimestamp.length - 1] || null;
+  const totalCount = normalizedPagamentos.length;
+  const confirmedCount = pagamentosConfirmados.length;
+  const pendingCount = totalCount - confirmedCount;
+  const allConfirmed = totalCount > 0 && pendingCount === 0;
+
+  return {
+    lancado: summarizePagamentos(normalizedPagamentos),
+    confirmado: summarizePagamentos(normalizedPagamentos, { confirmedOnly: true }),
+    totalCount,
+    confirmedCount,
+    pendingCount,
+    allConfirmed,
+    verificado_por: allConfirmed ? lastConfirmed?.confirmado_financeiro_por || null : null,
+    verificado_em: allConfirmed ? lastConfirmed?.confirmado_financeiro_em || null : null,
+  };
+}
+
+function resolvePagamentoConfirmations(pagamentos = [], previousPagamentos = [], actor = {}) {
+  const previousById = new Map(
+    previousPagamentos
+      .map((pagamento) => normalizePagamentoEntry(pagamento))
+      .filter((pagamento) => pagamento.id)
+      .map((pagamento) => [pagamento.id, pagamento])
+  );
+
+  return pagamentos.map((pagamento) => {
+    const normalized = normalizePagamentoEntry(pagamento);
+    const previous = normalized.id ? previousById.get(normalized.id) : null;
+    const explicitConfirmation = normalizeBooleanLike(pagamento.confirmado_financeiro);
+    const confirmed =
+      explicitConfirmation === null
+        ? Boolean(previous?.confirmado_financeiro)
+        : explicitConfirmation;
+
+    if (!confirmed) {
+      return {
+        ...normalized,
+        confirmado_financeiro: false,
+        confirmado_financeiro_por: null,
+        confirmado_financeiro_em: null,
+      };
+    }
+
+    if (previous?.confirmado_financeiro) {
+      return {
+        ...normalized,
+        confirmado_financeiro: true,
+        confirmado_financeiro_por: previous.confirmado_financeiro_por,
+        confirmado_financeiro_em: previous.confirmado_financeiro_em,
+      };
+    }
+
+    return {
+      ...normalized,
+      confirmado_financeiro: true,
+      confirmado_financeiro_por: normalized.confirmado_financeiro_por || actor.nome || actor.email || 'Financeiro',
+      confirmado_financeiro_em: normalized.confirmado_financeiro_em || new Date().toISOString(),
+    };
+  });
+}
+
 async function replacePagamentosAto(client, atoId, pagamentos = []) {
-  await client.query('DELETE FROM pagamentos_ato WHERE ato_id = $1', [atoId]);
+  const keepIds = pagamentos
+    .map((pagamento) => Number.parseInt(pagamento.id, 10))
+    .filter((id) => Number.isInteger(id));
+
+  if (keepIds.length) {
+    await client.query(
+      'DELETE FROM pagamentos_ato WHERE ato_id = $1 AND NOT (id = ANY($2::int[]))',
+      [atoId, keepIds]
+    );
+  } else {
+    await client.query('DELETE FROM pagamentos_ato WHERE ato_id = $1', [atoId]);
+  }
 
   for (const pagamento of pagamentos) {
+    if (pagamento.id) {
+      await client.query(
+        `UPDATE pagamentos_ato
+            SET valor = $3,
+                data_pagamento = $4,
+                forma_pagamento = $5,
+                notas = $6,
+                confirmado_financeiro = $7,
+                confirmado_financeiro_por = $8,
+                confirmado_financeiro_em = $9
+          WHERE id = $1
+            AND ato_id = $2`,
+        [
+          pagamento.id,
+          atoId,
+          pagamento.valor,
+          pagamento.data_pagamento,
+          pagamento.forma_pagamento,
+          pagamento.notas,
+          pagamento.confirmado_financeiro,
+          pagamento.confirmado_financeiro_por,
+          pagamento.confirmado_financeiro_em,
+        ]
+      );
+      continue;
+    }
+
     await client.query(
-      `INSERT INTO pagamentos_ato(ato_id, valor, data_pagamento, forma_pagamento, notas)
-       VALUES($1,$2,$3,$4,$5)`,
+      `INSERT INTO pagamentos_ato(
+         ato_id, valor, data_pagamento, forma_pagamento, notas,
+         confirmado_financeiro, confirmado_financeiro_por, confirmado_financeiro_em
+       )
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
         atoId,
         pagamento.valor,
         pagamento.data_pagamento,
         pagamento.forma_pagamento,
         pagamento.notas,
+        pagamento.confirmado_financeiro,
+        pagamento.confirmado_financeiro_por,
+        pagamento.confirmado_financeiro_em,
       ]
     );
   }
@@ -146,6 +288,9 @@ function serializePagamentoList(pagamentos = []) {
       data_pagamento: pagamento.data_pagamento || null,
       forma_pagamento: pagamento.forma_pagamento || null,
       notas: pagamento.notas || null,
+      confirmado_financeiro: pagamento.confirmado_financeiro === true,
+      confirmado_financeiro_por: pagamento.confirmado_financeiro_por || null,
+      confirmado_financeiro_em: pagamento.confirmado_financeiro_em || null,
     }))
     .join('|');
 }
@@ -157,7 +302,10 @@ module.exports = {
   normalizePagamentosPayload,
   validatePagamentos,
   summarizePagamentos,
+  buildPagamentoState,
+  resolvePagamentoConfirmations,
   replacePagamentosAto,
   serializePagamentoList,
   normalizeDateValue,
+  normalizeTimestampValue,
 };

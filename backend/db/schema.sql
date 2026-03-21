@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS pagamentos_ato (
   data_pagamento  DATE,
   forma_pagamento VARCHAR(50),
   notas           TEXT,
+  confirmado_financeiro BOOLEAN NOT NULL DEFAULT false,
+  confirmado_financeiro_por VARCHAR(255),
+  confirmado_financeiro_em TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT chk_pagamentos_ato_valor_positivo CHECK (valor > 0)
@@ -171,6 +174,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_atos_livro_pagina_validos
   WHERE livro <> '0' AND pagina <> '0';
 CREATE INDEX IF NOT EXISTS idx_correcoes_ato       ON correcoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_pagamentos_ato_ato  ON pagamentos_ato(ato_id, data_pagamento, id);
+CREATE INDEX IF NOT EXISTS idx_pagamentos_ato_confirmacao ON pagamentos_ato(ato_id, confirmado_financeiro, confirmado_financeiro_em);
 CREATE INDEX IF NOT EXISTS idx_reiv_ato            ON reivindicacoes(ato_id);
 CREATE INDEX IF NOT EXISTS idx_reiv_escrevente     ON reivindicacoes(escrevente_id);
 CREATE INDEX IF NOT EXISTS idx_import_lotes_created_at ON import_lotes(created_at DESC);

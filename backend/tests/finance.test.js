@@ -132,3 +132,23 @@ test('enrichAtoFinance normaliza override de comissão em shape estável', () =>
     },
   ]);
 });
+
+test('enrichAtoFinance separa status calculado do status confirmado', () => {
+  const ato = enrichAtoFinance({
+    emolumentos: 1000,
+    repasses: 0,
+    issqn: 0,
+    reembolso_tabeliao: 0,
+    reembolso_escrevente: 0,
+    pagamentos: [
+      { valor: 600, data_pagamento: '2026-03-20', forma_pagamento: 'Pix', confirmado_financeiro: true },
+      { valor: 400, data_pagamento: '2026-03-21', forma_pagamento: 'Boleto', confirmado_financeiro: false },
+    ],
+  });
+
+  assert.equal(ato.valor_pago_lancado, 1000);
+  assert.equal(ato.valor_pago_confirmado, 600);
+  assert.equal(ato.status_calculado, 'pago');
+  assert.equal(ato.status, 'pago_menor');
+  assert.equal(ato.tem_pagamento_pendente_confirmacao, true);
+});

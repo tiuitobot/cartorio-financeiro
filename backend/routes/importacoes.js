@@ -316,7 +316,7 @@ async function cancelLote(loteId, actorUserId) {
   }
 }
 
-function inferValorPago(normalized) {
+function inferPagamentoImportado(normalized) {
   const total = totalAto({
     emolumentos: normalized.emolumentos,
     repasses: normalized.repasses,
@@ -325,11 +325,14 @@ function inferValorPago(normalized) {
     reembolso_escrevente: 0,
   });
 
-  if (normalized.data_pagamento || normalized.confirmacao_recebimento_em) {
-    return total;
-  }
+  const lancado = normalized.data_pagamento || normalized.confirmacao_recebimento_em ? total : 0;
+  const confirmado = normalized.confirmacao_recebimento_em ? total : 0;
 
-  return 0;
+  return {
+    lancado,
+    confirmado,
+    confirmado_financeiro: Boolean(normalized.confirmacao_recebimento_em),
+  };
 }
 
 async function buildCaptadorMap(client) {
@@ -491,8 +494,8 @@ async function importLote(loteId, actorUserId, options = {}) {
 
       const repasses = normalized.repasses ?? 0;
       const issqn = normalized.issqn ?? 0;
-      const valorPago = inferValorPago(normalized);
-      const status = calcStatus(normalized.emolumentos, repasses, issqn, 0, 0, valorPago);
+      const pagamentoImportado = inferPagamentoImportado(normalized);
+      const status = calcStatus(normalized.emolumentos, repasses, issqn, 0, 0, pagamentoImportado.confirmado);
       const notasImportacao = [
         `Importado da planilha controle diário (lote ${loteId}, linha ${row.numero_linha})`,
         `Captador mapeado de ESCREVENTE: ${captadorResolvido.nome}`,
@@ -502,8 +505,11 @@ async function importLote(loteId, actorUserId, options = {}) {
           `escrevente criado automaticamente na importação com taxa ${captadorResolvido.taxa}%`
         );
       }
-      if (normalized.data_pagamento || normalized.confirmacao_recebimento_em) {
-        notasImportacao.push('valor_pago inferido automaticamente a partir do sinal de quitação na planilha');
+      if (pagamentoImportado.lancado > 0) {
+        notasImportacao.push('pagamento lançado automaticamente a partir do sinal de quitação na planilha');
+      }
+      if (pagamentoImportado.confirmado_financeiro) {
+        notasImportacao.push('pagamento marcado como conferido por haver Confirmação Recebimento na planilha');
       }
 
       try {
@@ -540,23 +546,26 @@ async function importLote(loteId, actorUserId, options = {}) {
             0,
             0,
             null,
-            valorPago,
-            normalized.data_pagamento,
-            normalized.forma_pagamento,
+            pagamentoImportado.confirmado,
+            pagamentoImportado.confirmado_financeiro ? (normalized.confirmacao_recebimento_em || normalized.data_pagamento) : null,
+            pagamentoImportado.confirmado_financeiro ? normalized.forma_pagamento : null,
             normalized.controle_cheques,
             status,
-            null,
-            null,
+            pagamentoImportado.confirmado_financeiro ? 'Importação inicial' : null,
+            pagamentoImportado.confirmado_financeiro ? (normalized.confirmacao_recebimento_em || normalized.data_pagamento) : null,
             null,
             notasImportacao.join('. '),
           ]
         );
-        if (valorPago > 0) {
+        if (pagamentoImportado.lancado > 0) {
           await replacePagamentosAto(client, insertResult.rows[0].id, [{
-            valor: valorPago,
-            data_pagamento: normalized.data_pagamento,
+            valor: pagamentoImportado.lancado,
+            data_pagamento: normalized.data_pagamento || normalized.confirmacao_recebimento_em,
             forma_pagamento: normalized.forma_pagamento,
             notas: 'Pagamento sintetizado da importação inicial',
+            confirmado_financeiro: pagamentoImportado.confirmado_financeiro,
+            confirmado_financeiro_por: pagamentoImportado.confirmado_financeiro ? 'Importação inicial' : null,
+            confirmado_financeiro_em: pagamentoImportado.confirmado_financeiro ? `${normalized.confirmacao_recebimento_em || normalized.data_pagamento}T12:00:00.000Z` : null,
           }]);
         }
         await client.query('RELEASE SAVEPOINT import_row');

@@ -17,6 +17,9 @@ function createBlankPagamento() {
     data_pagamento: '',
     forma_pagamento: '',
     notas: '',
+    confirmado_financeiro: false,
+    confirmado_financeiro_por: null,
+    confirmado_financeiro_em: null,
   };
 }
 
@@ -27,8 +30,12 @@ function calcStatus(total, valorPago) {
   return 'pago';
 }
 
-function summarizePagamentos(pagamentos = []) {
-  const pagamentosValidos = pagamentos.filter((pagamento) => toMoney(pagamento.valor) > 0);
+function summarizePagamentos(pagamentos = [], options = {}) {
+  const pagamentosValidos = pagamentos.filter((pagamento) => {
+    if (toMoney(pagamento.valor) <= 0) return false;
+    if (options.confirmedOnly) return pagamento.confirmado_financeiro === true;
+    return true;
+  });
   const valorPago = pagamentosValidos.reduce((sum, pagamento) => sum + toMoney(pagamento.valor), 0);
   const datas = pagamentosValidos
     .map((pagamento) => pagamento.data_pagamento)
@@ -47,6 +54,29 @@ function summarizePagamentos(pagamentos = []) {
   };
 }
 
+function buildPagamentoState(pagamentos = []) {
+  const lancado = summarizePagamentos(pagamentos);
+  const confirmado = summarizePagamentos(pagamentos, { confirmedOnly: true });
+  const lancados = pagamentos.filter((pagamento) => toMoney(pagamento.valor) > 0);
+  const confirmados = lancados.filter((pagamento) => pagamento.confirmado_financeiro === true);
+  const pendentesConfirmacao = Math.max(0, lancados.length - confirmados.length);
+  const lastConfirmed = [...confirmados]
+    .filter((pagamento) => pagamento.confirmado_financeiro_em)
+    .sort((a, b) => String(a.confirmado_financeiro_em).localeCompare(String(b.confirmado_financeiro_em)))
+    .pop();
+
+  return {
+    lancado,
+    confirmado,
+    pagamentos_lancados: lancados.length,
+    pagamentos_confirmados: confirmados.length,
+    pagamentos_pendentes_confirmacao: pendentesConfirmacao,
+    tem_pagamento_pendente_confirmacao: pendentesConfirmacao > 0,
+    verificado_por: pendentesConfirmacao === 0 && lancados.length > 0 ? lastConfirmed?.confirmado_financeiro_por || null : null,
+    verificado_em: pendentesConfirmacao === 0 && lancados.length > 0 ? lastConfirmed?.confirmado_financeiro_em || null : null,
+  };
+}
+
 function normalizePagamento(pagamento = {}, index = 0) {
   return {
     id: pagamento.id || null,
@@ -55,6 +85,9 @@ function normalizePagamento(pagamento = {}, index = 0) {
     data_pagamento: pagamento.data_pagamento?.slice(0, 10) || '',
     forma_pagamento: normalizeFormaPagamento(pagamento.forma_pagamento) || '',
     notas: pagamento.notas || '',
+    confirmado_financeiro: pagamento.confirmado_financeiro === true,
+    confirmado_financeiro_por: pagamento.confirmado_financeiro_por || null,
+    confirmado_financeiro_em: pagamento.confirmado_financeiro_em || null,
   };
 }
 
@@ -66,23 +99,43 @@ function buildInitialForm(ato) {
             valor: ato.valor_pago,
             data_pagamento: ato.data_pagamento,
             forma_pagamento: ato.forma_pagamento,
+            confirmado_financeiro: true,
+            confirmado_financeiro_por: ato.verificado_por,
+            confirmado_financeiro_em: ato.verificado_em,
           })]
         : [createBlankPagamento()]);
 
-  const pagamentosSummary = summarizePagamentos(pagamentosIniciais);
+  const paymentState = buildPagamentoState(pagamentosIniciais);
 
   return ato ? {
     ...ato,
     data_ato: ato.data_ato?.slice(0, 10) || '',
     pagamentos: pagamentosIniciais,
-    valor_pago: pagamentosSummary.valor_pago,
-    data_pagamento: pagamentosSummary.data_pagamento,
-    forma_pagamento: pagamentosSummary.forma_pagamento,
+    valor_pago: paymentState.confirmado.valor_pago,
+    valor_pago_confirmado: paymentState.confirmado.valor_pago,
+    valor_pago_lancado: paymentState.lancado.valor_pago,
+    data_pagamento: paymentState.confirmado.data_pagamento,
+    data_pagamento_confirmado: paymentState.confirmado.data_pagamento,
+    data_pagamento_lancado: paymentState.lancado.data_pagamento,
+    forma_pagamento: paymentState.confirmado.forma_pagamento,
+    forma_pagamento_confirmado: paymentState.confirmado.forma_pagamento,
+    forma_pagamento_lancado: paymentState.lancado.forma_pagamento,
     status: calcStatus(
       toMoney(ato.total)
         || (toMoney(ato.emolumentos) + toMoney(ato.repasses) + toMoney(ato.issqn) + toMoney(ato.reembolso_tabeliao) + toMoney(ato.reembolso_escrevente)),
-      pagamentosSummary.valor_pago
+      paymentState.confirmado.valor_pago
     ),
+    status_calculado: calcStatus(
+      toMoney(ato.total)
+        || (toMoney(ato.emolumentos) + toMoney(ato.repasses) + toMoney(ato.issqn) + toMoney(ato.reembolso_tabeliao) + toMoney(ato.reembolso_escrevente)),
+      paymentState.lancado.valor_pago
+    ),
+    pagamentos_lancados: paymentState.pagamentos_lancados,
+    pagamentos_confirmados: paymentState.pagamentos_confirmados,
+    pagamentos_pendentes_confirmacao: paymentState.pagamentos_pendentes_confirmacao,
+    tem_pagamento_pendente_confirmacao: paymentState.tem_pagamento_pendente_confirmacao,
+    verificado_por: paymentState.verificado_por,
+    verificado_em: paymentState.verificado_em,
   } : {
     controle: '',
     livro: '',
@@ -100,11 +153,22 @@ function buildInitialForm(ato) {
     data_ato: '',
     pagamentos: [createBlankPagamento()],
     valor_pago: 0,
+    valor_pago_confirmado: 0,
+    valor_pago_lancado: 0,
     data_pagamento: '',
+    data_pagamento_confirmado: '',
+    data_pagamento_lancado: '',
     forma_pagamento: '',
+    forma_pagamento_confirmado: '',
+    forma_pagamento_lancado: '',
     status: 'pendente',
+    status_calculado: 'pendente',
     verificado_por: null,
     verificado_em: null,
+    pagamentos_lancados: 0,
+    pagamentos_confirmados: 0,
+    pagamentos_pendentes_confirmacao: 0,
+    tem_pagamento_pendente_confirmacao: false,
     correcoes: [],
     notas: '',
     comissao_override: null,
@@ -120,11 +184,12 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
   const total = toMoney(form.emolumentos) + toMoney(form.repasses) + toMoney(form.issqn) + toMoney(form.reembolso_tabeliao) + toMoney(form.reembolso_escrevente);
   const comissoes = form.comissoes || [];
   const pagamentosValidos = (form.pagamentos || []).filter((pagamento) => toMoney(pagamento.valor) > 0);
-  const statusCalculado = calcStatus(total, toMoney(form.valor_pago));
+  const statusCalculado = calcStatus(total, toMoney(form.valor_pago_lancado));
+  const statusConfirmado = calcStatus(total, toMoney(form.valor_pago_confirmado ?? form.valor_pago));
 
   const reembEsc = (() => {
     const reemEsc = toMoney(form.reembolso_escrevente);
-    const vPago = toMoney(form.valor_pago);
+    const vPago = toMoney(form.valor_pago_confirmado ?? form.valor_pago);
     if (reemEsc <= 0 || vPago <= 0) return 0;
     const prior = toMoney(form.emolumentos) + toMoney(form.repasses) + toMoney(form.issqn) + toMoney(form.reembolso_tabeliao);
     const sobra = vPago - prior;
@@ -138,18 +203,34 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
     setForm((current) => {
       const pagamentos = typeof updater === 'function' ? updater(current.pagamentos || []) : updater;
       const nextPagamentos = pagamentos.length ? pagamentos : [createBlankPagamento()];
-      const summary = summarizePagamentos(nextPagamentos);
+      const paymentState = buildPagamentoState(nextPagamentos);
 
       return {
         ...current,
         pagamentos: nextPagamentos,
-        valor_pago: summary.valor_pago,
-        data_pagamento: summary.data_pagamento,
-        forma_pagamento: summary.forma_pagamento,
+        valor_pago: paymentState.confirmado.valor_pago,
+        valor_pago_confirmado: paymentState.confirmado.valor_pago,
+        valor_pago_lancado: paymentState.lancado.valor_pago,
+        data_pagamento: paymentState.confirmado.data_pagamento,
+        data_pagamento_confirmado: paymentState.confirmado.data_pagamento,
+        data_pagamento_lancado: paymentState.lancado.data_pagamento,
+        forma_pagamento: paymentState.confirmado.forma_pagamento,
+        forma_pagamento_confirmado: paymentState.confirmado.forma_pagamento,
+        forma_pagamento_lancado: paymentState.lancado.forma_pagamento,
         status: calcStatus(
           toMoney(current.emolumentos) + toMoney(current.repasses) + toMoney(current.issqn) + toMoney(current.reembolso_tabeliao) + toMoney(current.reembolso_escrevente),
-          summary.valor_pago
+          paymentState.confirmado.valor_pago
         ),
+        status_calculado: calcStatus(
+          toMoney(current.emolumentos) + toMoney(current.repasses) + toMoney(current.issqn) + toMoney(current.reembolso_tabeliao) + toMoney(current.reembolso_escrevente),
+          paymentState.lancado.valor_pago
+        ),
+        pagamentos_lancados: paymentState.pagamentos_lancados,
+        pagamentos_confirmados: paymentState.pagamentos_confirmados,
+        pagamentos_pendentes_confirmacao: paymentState.pagamentos_pendentes_confirmacao,
+        tem_pagamento_pendente_confirmacao: paymentState.tem_pagamento_pendente_confirmacao,
+        verificado_por: paymentState.verificado_por,
+        verificado_em: paymentState.verificado_em,
       };
     });
   };
@@ -170,9 +251,45 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
     syncPagamentos((pagamentos) => pagamentos.filter((pagamento) => (pagamento.id || pagamento._tmp) !== key));
   };
 
-  const confirmarRecebimento = () => {
+  const confirmarPagamento = (key) => {
     const nome = { admin: 'Tabelião', financeiro: 'Financeiro', chefe_financeiro: 'Chefe Financeiro' }[userRole] || userRole;
-    setForm((current) => ({ ...current, verificado_por: nome, verificado_em: null }));
+    syncPagamentos((pagamentos) => pagamentos.map((pagamento) => (
+      (pagamento.id || pagamento._tmp) === key
+        ? {
+            ...pagamento,
+            confirmado_financeiro: true,
+            confirmado_financeiro_por: pagamento.confirmado_financeiro_por || nome,
+            confirmado_financeiro_em: pagamento.confirmado_financeiro_em || new Date().toISOString(),
+          }
+        : pagamento
+    )));
+  };
+
+  const desfazerConfirmacaoPagamento = (key) => {
+    syncPagamentos((pagamentos) => pagamentos.map((pagamento) => (
+      (pagamento.id || pagamento._tmp) === key
+        ? {
+            ...pagamento,
+            confirmado_financeiro: false,
+            confirmado_financeiro_por: null,
+            confirmado_financeiro_em: null,
+          }
+        : pagamento
+    )));
+  };
+
+  const confirmarTodosPagamentos = () => {
+    const nome = { admin: 'Tabelião', financeiro: 'Financeiro', chefe_financeiro: 'Chefe Financeiro' }[userRole] || userRole;
+    syncPagamentos((pagamentos) => pagamentos.map((pagamento) => (
+      toMoney(pagamento.valor) > 0
+        ? {
+            ...pagamento,
+            confirmado_financeiro: true,
+            confirmado_financeiro_por: pagamento.confirmado_financeiro_por || nome,
+            confirmado_financeiro_em: pagamento.confirmado_financeiro_em || new Date().toISOString(),
+          }
+        : pagamento
+    )));
   };
 
   const addCorrecao = () => {
@@ -292,36 +409,57 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                     <div style={{ marginTop: 10 }}>
                       <FInput label="Observações do pagamento" value={pagamento.notas || ''} onChange={(e) => setPagamentoField(pagamentoKey, 'notas', e.target.value)} disabled={!podeEditar} placeholder="Opcional" />
                     </div>
+                    <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 12, color: pagamento.confirmado_financeiro ? '#15803d' : '#b45309', fontWeight: 700 }}>
+                        {pagamento.confirmado_financeiro
+                          ? `✅ Conferido${pagamento.confirmado_financeiro_por ? ` por ${pagamento.confirmado_financeiro_por}` : ''}${pagamento.confirmado_financeiro_em ? ` em ${fmtDate(pagamento.confirmado_financeiro_em)}` : ''}`
+                          : '⏳ Lançado e aguardando conferência financeira'}
+                      </div>
+                      {podeEditar && toMoney(pagamento.valor) > 0 && (
+                        pagamento.confirmado_financeiro ? (
+                          <Btn variant="secondary" onClick={() => desfazerConfirmacaoPagamento(pagamentoKey)} style={{ padding: '4px 10px', fontSize: 12 }}>
+                            Desfazer conferência
+                          </Btn>
+                        ) : (
+                          <Btn variant="success" onClick={() => confirmarPagamento(pagamentoKey)} style={{ padding: '4px 10px', fontSize: 12 }}>
+                            Confirmar pagamento
+                          </Btn>
+                        )
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
             {podeEditar && (
-              <div style={{ marginTop: 12 }}>
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Btn variant="secondary" onClick={addPagamento}>+ Adicionar pagamento</Btn>
+                {pagamentosValidos.some((pagamento) => !pagamento.confirmado_financeiro) && (
+                  <Btn variant="success" onClick={confirmarTodosPagamentos}>✅ Confirmar todos os lançamentos</Btn>
+                )}
               </div>
             )}
 
             <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div style={{ padding: '10px 14px', borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Resumo calculado</div>
-                <div style={{ marginTop: 4, color: '#1e3a5f', fontWeight: 700 }}>{fmt(form.valor_pago)} recebidos em {pagamentosValidos.length} lançamento(s)</div>
+                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Lançado</div>
+                <div style={{ marginTop: 4, color: '#1e3a5f', fontWeight: 700 }}>{fmt(form.valor_pago_lancado)} em {form.pagamentos_lancados || 0} lançamento(s)</div>
                 <div style={{ marginTop: 2, fontSize: 12, color: '#64748b' }}>
-                  Última data: {form.data_pagamento || '—'} | Forma resumo: {form.forma_pagamento || '—'}
+                  Última data: {form.data_pagamento_lancado || '—'} | Forma resumo: {form.forma_pagamento_lancado || '—'}
                 </div>
               </div>
-              <div style={{ padding: '10px 14px', borderRadius: 10, background: form.valor_pago < total ? '#fff7ed' : form.valor_pago > total ? '#eff6ff' : '#f0fdf4', border: `1px solid ${form.valor_pago < total ? '#fdba74' : form.valor_pago > total ? '#93c5fd' : '#86efac'}` }}>
-                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Situação do pagamento</div>
-                <div style={{ marginTop: 4, fontWeight: 700, color: form.valor_pago < total ? '#c2410c' : form.valor_pago > total ? '#1d4ed8' : '#15803d' }}>
-                  {form.valor_pago < total ? `⚠️ A receber: ${fmt(total - form.valor_pago)}` : form.valor_pago > total ? `ℹ️ A maior: ${fmt(form.valor_pago - total)}` : '✅ Pagamento integral'}
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: form.valor_pago_confirmado < total ? '#fff7ed' : form.valor_pago_confirmado > total ? '#eff6ff' : '#f0fdf4', border: `1px solid ${form.valor_pago_confirmado < total ? '#fdba74' : form.valor_pago_confirmado > total ? '#93c5fd' : '#86efac'}` }}>
+                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Conferido pelo financeiro</div>
+                <div style={{ marginTop: 4, fontWeight: 700, color: form.valor_pago_confirmado < total ? '#c2410c' : form.valor_pago_confirmado > total ? '#1d4ed8' : '#15803d' }}>
+                  {form.valor_pago_confirmado < total ? `⚠️ Confirmado: ${fmt(form.valor_pago_confirmado)} | Falta conferir ${fmt(total - form.valor_pago_confirmado)}` : form.valor_pago_confirmado > total ? `ℹ️ Confirmado a maior: ${fmt(form.valor_pago_confirmado - total)}` : '✅ Pagamento integral confirmado'}
                 </div>
               </div>
             </div>
 
             <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <FSel
-                label="Status calculado"
+                label="Situação lançada"
                 options={[
                   { value: 'pendente', label: 'Pendente' },
                   { value: 'pago', label: 'Pago' },
@@ -332,6 +470,18 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 onChange={() => {}}
                 disabled
               />
+              <FSel
+                label="Status oficial"
+                options={[
+                  { value: 'pendente', label: 'Pendente' },
+                  { value: 'pago', label: 'Pago' },
+                  { value: 'pago_menor', label: 'Pago a menor' },
+                  { value: 'pago_maior', label: 'Pago a maior' },
+                ]}
+                value={statusConfirmado}
+                onChange={() => {}}
+                disabled
+              />
             </div>
 
             <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: form.verificado_por ? '#f0fdf4' : '#fef2f2', border: `1px solid ${form.verificado_por ? '#86efac' : '#fecaca'}` }}>
@@ -339,16 +489,16 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 20 }}>✅</span>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#16a34a', fontSize: 13 }}>Recebimento confirmado</div>
+                    <div style={{ fontWeight: 700, color: '#16a34a', fontSize: 13 }}>Todos os pagamentos lançados já foram conferidos</div>
                     <div style={{ fontSize: 12, color: '#64748b' }}>Por {form.verificado_por}{form.verificado_em ? ` em ${form.verificado_em}` : ' — data definida ao salvar'}</div>
                   </div>
-                  {userRole === 'admin' && <Btn variant="secondary" onClick={() => setForm((current) => ({ ...current, verificado_por: null, verificado_em: null }))} style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 12 }}>Desfazer</Btn>}
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 700 }}>Recebimento ainda não confirmado</span>
-                  {podeEditar && <Btn variant="success" onClick={confirmarRecebimento} style={{ padding: '6px 14px', fontSize: 13 }}>✅ Confirmar Recebimento</Btn>}
-                </div>
+                <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 700 }}>
+                  {form.pagamentos_lancados > 0
+                    ? `${form.pagamentos_pendentes_confirmacao || 0} lançamento(s) aguardando conferência financeira`
+                    : 'Nenhum pagamento lançado'}
+                </span>
               )}
             </div>
           </div>

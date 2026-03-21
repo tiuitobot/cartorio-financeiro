@@ -1,3 +1,5 @@
+const { buildPagamentoState } = require('./pagamentos');
+
 function toNumber(value) {
   const parsed = Number.parseFloat(value || 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -178,11 +180,66 @@ function calcularComissoes(ato) {
 }
 
 function enrichAtoFinance(ato) {
+  const pagamentos = Array.isArray(ato.pagamentos) && ato.pagamentos.length
+    ? ato.pagamentos
+    : (
+      toNumber(ato.valor_pago) > 0 || ato.data_pagamento || ato.forma_pagamento
+        ? [{
+            valor: ato.valor_pago,
+            data_pagamento: ato.data_pagamento,
+            forma_pagamento: ato.forma_pagamento,
+            confirmado_financeiro: true,
+            confirmado_financeiro_por: ato.verificado_por || 'Legado',
+            confirmado_financeiro_em: ato.verificado_em || null,
+          }]
+        : []
+    );
+  const paymentState = buildPagamentoState(pagamentos);
+  const valorPagoLancado = paymentState.lancado.valor_pago;
+  const valorPagoConfirmado = paymentState.confirmado.valor_pago;
+  const statusCalculado = calcStatus(
+    ato.emolumentos,
+    ato.repasses,
+    ato.issqn,
+    ato.reembolso_tabeliao,
+    ato.reembolso_escrevente,
+    valorPagoLancado
+  );
+  const statusConfirmado = calcStatus(
+    ato.emolumentos,
+    ato.repasses,
+    ato.issqn,
+    ato.reembolso_tabeliao,
+    ato.reembolso_escrevente,
+    valorPagoConfirmado
+  );
+
   return {
     ...ato,
+    valor_pago: valorPagoConfirmado,
+    data_pagamento: paymentState.confirmado.data_pagamento,
+    forma_pagamento: paymentState.confirmado.forma_pagamento,
+    valor_pago_confirmado: valorPagoConfirmado,
+    data_pagamento_confirmado: paymentState.confirmado.data_pagamento,
+    forma_pagamento_confirmado: paymentState.confirmado.forma_pagamento,
+    valor_pago_lancado: valorPagoLancado,
+    data_pagamento_lancado: paymentState.lancado.data_pagamento,
+    forma_pagamento_lancado: paymentState.lancado.forma_pagamento,
+    pagamentos,
+    status: statusConfirmado,
+    status_calculado: statusCalculado,
+    verificado_por: paymentState.verificado_por || null,
+    verificado_em: paymentState.verificado_em || null,
+    pagamentos_lancados: paymentState.totalCount,
+    pagamentos_confirmados: paymentState.confirmedCount,
+    pagamentos_pendentes_confirmacao: paymentState.pendingCount,
+    tem_pagamento_pendente_confirmacao: paymentState.pendingCount > 0,
     total: totalAto(ato),
     comissoes: calcularComissoes(ato),
-    reembolso_devido_escrevente: reembolsoDevidoEscrevente(ato),
+    reembolso_devido_escrevente: reembolsoDevidoEscrevente({
+      ...ato,
+      valor_pago: valorPagoConfirmado,
+    }),
   };
 }
 
