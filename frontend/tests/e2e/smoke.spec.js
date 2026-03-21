@@ -26,7 +26,7 @@ test.describe('smoke e2e', () => {
     expect(await linhasAtos.count()).toBeGreaterThanOrEqual(6);
     await expect(page.getByRole('button', { name: /Novo Ato/ })).toBeVisible();
     await expect(page.getByText('00047')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Conferir|Conferido|Conferência/ }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Conferir|Conferido|Sem pgto a conferir/ }).first()).toBeVisible();
 
     await page.getByRole('button', { name: /Relatórios/ }).click();
     await expect(page.getByRole('button', { name: /Atos/ })).toBeVisible();
@@ -52,7 +52,7 @@ test.describe('smoke e2e', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
 
     const primeiraLinha = page.locator('table tbody tr').first();
-    await primeiraLinha.getByRole('button', { name: /Conferir|Conferido|Conferência/ }).click();
+    await primeiraLinha.getByRole('button', { name: /Conferir|Conferido|Sem pgto a conferir/ }).click();
 
     await expect(page.getByText('Modo de conferência financeira')).toBeVisible();
     await expect(page.getByRole('button', { name: /Salvar conferência financeira|Criar ato e salvar conferência/ })).toBeVisible();

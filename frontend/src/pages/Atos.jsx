@@ -27,7 +27,8 @@ const STATUS_OPTIONS = [
 const CONFERENCIA_OPTIONS = [
   { value: '', label: 'Todas' },
   { value: 'confirmado', label: 'Conferido' },
-  { value: 'nao_confirmado', label: 'Não conferido' },
+  { value: 'pendente', label: 'Pendente de conferência' },
+  { value: 'sem_pagamento', label: 'Sem pagamento lançado' },
 ];
 
 export default function Atos({
@@ -78,14 +79,21 @@ export default function Atos({
 
   const atosListados = useMemo(() => {
     return atos.filter((ato) => {
+      const pagamentosLancados = Number(ato.pagamentos_lancados || 0);
+      const temLancamentoFinanceiro =
+        pagamentosLancados > 0
+        || Number(ato.valor_pago_lancado || ato.valor_pago || 0) > 0;
+      const conferenciaConcluida = Boolean(ato.verificado_por);
+
       if (fCaptador && ato.captador_id !== Number.parseInt(fCaptador, 10)) return false;
       if (fEnvolvido) {
         const envolvidoId = Number.parseInt(fEnvolvido, 10);
         if (![ato.captador_id, ato.executor_id, ato.signatario_id].includes(envolvidoId)) return false;
       }
       if (fStatus && ato.status !== fStatus) return false;
-      if (fConfirmacao === 'confirmado' && !ato.verificado_por) return false;
-      if (fConfirmacao === 'nao_confirmado' && ato.verificado_por) return false;
+      if (fConfirmacao === 'confirmado' && !conferenciaConcluida) return false;
+      if (fConfirmacao === 'pendente' && (!temLancamentoFinanceiro || conferenciaConcluida)) return false;
+      if (fConfirmacao === 'sem_pagamento' && temLancamentoFinanceiro) return false;
 
       const dataAto = ato.data_ato?.slice(0, 10) || '';
       if (fInicio && (!dataAto || dataAto < fInicio)) return false;
@@ -423,13 +431,13 @@ export default function Atos({
 
                           return (
                             <Btn
-                              variant={conferenciaConcluida ? 'success' : 'warning'}
+                              variant={conferenciaConcluida ? 'success' : (temLancamentoFinanceiro ? 'warning' : 'secondary')}
                               onClick={() => onOpenAto({ ...a, _openSection: 'financeiro' })}
                               style={{ padding: '5px 14px', fontSize: 12, whiteSpace: 'nowrap' }}
                             >
                               {conferenciaConcluida
                                 ? '✅ Conferido'
-                                : (temLancamentoFinanceiro ? '💼 Conferir' : '💼 Conferência')}
+                                : (temLancamentoFinanceiro ? '💼 Conferir' : '➖ Sem pgto a conferir')}
                             </Btn>
                           );
                         })()
