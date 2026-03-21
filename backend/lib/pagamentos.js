@@ -122,9 +122,11 @@ function validatePagamentos(pagamentos = []) {
 }
 
 function summarizePagamentos(pagamentos = [], options = {}) {
-  const list = options.confirmedOnly
-    ? pagamentos.filter((pagamento) => normalizeBooleanLike(pagamento.confirmado_financeiro) === true)
-    : pagamentos;
+  const list = pagamentos.filter((pagamento) => {
+    if (toMoney(pagamento.valor) <= 0) return false;
+    if (options.confirmedOnly) return normalizeBooleanLike(pagamento.confirmado_financeiro) === true;
+    return true;
+  });
   const valorPago = list.reduce((sum, pagamento) => sum + toMoney(pagamento.valor), 0);
   const datas = list
     .map((pagamento) => pagamento.data_pagamento)
@@ -144,7 +146,9 @@ function summarizePagamentos(pagamentos = [], options = {}) {
 }
 
 function buildPagamentoState(pagamentos = []) {
-  const normalizedPagamentos = pagamentos.map((pagamento) => normalizePagamentoEntry(pagamento));
+  const normalizedPagamentos = pagamentos
+    .map((pagamento) => normalizePagamentoEntry(pagamento))
+    .filter((pagamento) => toMoney(pagamento.valor) > 0);
   const pagamentosConfirmados = normalizedPagamentos.filter((pagamento) => pagamento.confirmado_financeiro);
   const confirmadosComTimestamp = pagamentosConfirmados
     .filter((pagamento) => pagamento.confirmado_financeiro_em)

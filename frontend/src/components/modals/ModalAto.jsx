@@ -94,7 +94,9 @@ function normalizePagamento(pagamento = {}, index = 0) {
 function buildInitialForm(ato) {
   const { _openSection, ...atoBase } = ato || {};
   const pagamentosIniciais = Array.isArray(ato?.pagamentos) && ato.pagamentos.length
-    ? ato.pagamentos.map((pagamento, index) => normalizePagamento(pagamento, index))
+    ? ato.pagamentos
+        .map((pagamento, index) => normalizePagamento(pagamento, index))
+        .filter((pagamento) => toMoney(pagamento.valor) > 0)
     : (ato?.valor_pago > 0 || ato?.data_pagamento || ato?.forma_pagamento
         ? [normalizePagamento({
             valor: ato.valor_pago,

@@ -19,6 +19,19 @@ test('buildPagamentoState separa lançado de confirmado', () => {
   assert.equal(state.allConfirmed, false);
 });
 
+test('buildPagamentoState ignora pagamentos com valor zero', () => {
+  const state = buildPagamentoState([
+    { valor: 0, forma_pagamento: 'Pix', confirmado_financeiro: false },
+  ]);
+
+  assert.equal(state.lancado.valor_pago, 0);
+  assert.equal(state.confirmado.valor_pago, 0);
+  assert.equal(state.totalCount, 0);
+  assert.equal(state.confirmedCount, 0);
+  assert.equal(state.pendingCount, 0);
+  assert.equal(state.allConfirmed, false);
+});
+
 test('resolvePagamentoConfirmations preserva carimbo de confirmação existente', () => {
   const pagamentos = resolvePagamentoConfirmations(
     [{ id: 12, valor: 500, confirmado_financeiro: true }],

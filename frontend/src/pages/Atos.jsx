@@ -14,7 +14,7 @@ const TODAS_COLUNAS = [
   { key: 'tomador', label: 'Tomador' },
   { key: 'emolumentos', label: 'Emolumentos' },
   { key: 'total', label: 'Total' },
-  { key: 'pago', label: 'Pago' },
+  { key: 'pago', label: 'Financeiro' },
   { key: 'status', label: 'Status' },
 ];
 const STATUS_OPTIONS = [
@@ -135,6 +135,10 @@ export default function Atos({
     const executor = escreventes.find((item) => item.id === ato.executor_id);
     const signatario = escreventes.find((item) => item.id === ato.signatario_id);
     const tot = ato.total;
+    const valorLancado = Number(ato.valor_pago_lancado || 0);
+    const valorConfirmado = Number(ato.valor_pago || 0);
+    const temLancamento = valorLancado > 0;
+    const conferenciaPendente = temLancamento && valorConfirmado < valorLancado - 0.005;
 
     const map = {
       controle: <span style={{ fontWeight: 700, color: '#1e3a5f', whiteSpace: 'nowrap' }}>{padControle(ato.controle)}</span>,
@@ -147,7 +151,20 @@ export default function Atos({
       tomador: ato.nome_tomador || '—',
       emolumentos: <span style={{ whiteSpace: 'nowrap' }}>{fmt(ato.emolumentos)}</span>,
       total: <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(tot)}</span>,
-      pago: <span style={{ color: ato.valor_pago >= tot ? '#22c55e' : '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(ato.valor_pago)}</span>,
+      pago: (
+        !temLancamento ? (
+          <span style={{ color: '#94a3b8', fontSize: 12, whiteSpace: 'nowrap' }}>Sem lançamento</span>
+        ) : conferenciaPendente ? (
+          <div style={{ display: 'grid', gap: 2 }}>
+            <span style={{ color: '#b45309', fontWeight: 700, whiteSpace: 'nowrap' }}>Lan: {fmt(valorLancado)}</span>
+            <span style={{ color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>Conf: {fmt(valorConfirmado)}</span>
+          </div>
+        ) : (
+          <span style={{ color: valorConfirmado >= tot ? '#22c55e' : '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            {fmt(valorConfirmado)}
+          </span>
+        )
+      ),
       status: (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Badge label={sLabel(ato.status)} color={sColor(ato.status)} />
