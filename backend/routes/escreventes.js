@@ -2,9 +2,11 @@ const router = require('express').Router();
 const db = require('../db');
 const { authMiddleware, requirePerfil } = require('../middleware/auth');
 const {
+  HISTORICO_TAXA_BASE_DATE,
   todayDateString,
   normalizeVigenciaInicio,
   upsertTaxaHistorico,
+  ensureTaxaHistoricoBaseline,
   fetchEffectiveTaxaAtDate,
 } = require('../lib/taxas-historico');
 
@@ -117,7 +119,7 @@ router.post('/', authMiddleware, requirePerfil('admin'), async (req, res) => {
     await upsertTaxaHistorico(client, {
       escreventeId: novo.id,
       taxa: taxaInt,
-      vigenciaInicio: todayDateString(),
+      vigenciaInicio: HISTORICO_TAXA_BASE_DATE,
       createdByUserId: req.user.id || null,
     });
     for (const cid of compartilhar_com) {
@@ -160,6 +162,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
         return res.status(400).json({ erro: 'Nome e taxa (6, 20 ou 30) obrigatórios' });
       }
       const vigenciaInicio = normalizeVigenciaInicio(req.body.taxa_vigencia_inicio) || todayDateString();
+      await ensureTaxaHistoricoBaseline(client, {
+        escreventeId: id,
+        fallbackTaxa: existente.taxa_cadastrada,
+        createdByUserId: req.user.id || null,
+      });
       const taxaNaVigencia = await fetchEffectiveTaxaAtDate(client, id, vigenciaInicio, existente.taxa);
 
       await client.query(

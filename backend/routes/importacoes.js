@@ -9,7 +9,10 @@ const {
   normalizeKey,
 } = require('../lib/controle-diario-import');
 const { replacePagamentosAto } = require('../lib/pagamentos');
-const { todayDateString, upsertTaxaHistorico } = require('../lib/taxas-historico');
+const {
+  HISTORICO_TAXA_BASE_DATE,
+  upsertTaxaHistorico,
+} = require('../lib/taxas-historico');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -387,7 +390,7 @@ async function createEscreventeForImport(client, nome, taxa) {
   await upsertTaxaHistorico(client, {
     escreventeId: rows[0].id,
     taxa,
-    vigenciaInicio: todayDateString(),
+    vigenciaInicio: HISTORICO_TAXA_BASE_DATE,
     createdByUserId: null,
   });
   return rows[0];

@@ -185,8 +185,11 @@ const ATO_SELECT = `
     SELECT h.taxa
       FROM escreventes_taxas_historico h
      WHERE h.escrevente_id = a.captador_id
-       AND h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE)
-     ORDER BY h.vigencia_inicio DESC, h.id DESC
+     ORDER BY
+       CASE WHEN h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE) THEN 0 ELSE 1 END,
+       CASE WHEN h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE) THEN h.vigencia_inicio END DESC NULLS LAST,
+       CASE WHEN h.vigencia_inicio > COALESCE(a.data_ato, CURRENT_DATE) THEN h.created_at END ASC NULLS LAST,
+       CASE WHEN h.vigencia_inicio > COALESCE(a.data_ato, CURRENT_DATE) THEN h.id END ASC NULLS LAST
      LIMIT 1
   ) cap_taxa_hist ON TRUE
   LEFT JOIN escreventes exe ON a.executor_id = exe.id
@@ -194,8 +197,11 @@ const ATO_SELECT = `
     SELECT h.taxa
       FROM escreventes_taxas_historico h
      WHERE h.escrevente_id = a.executor_id
-       AND h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE)
-     ORDER BY h.vigencia_inicio DESC, h.id DESC
+     ORDER BY
+       CASE WHEN h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE) THEN 0 ELSE 1 END,
+       CASE WHEN h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE) THEN h.vigencia_inicio END DESC NULLS LAST,
+       CASE WHEN h.vigencia_inicio > COALESCE(a.data_ato, CURRENT_DATE) THEN h.created_at END ASC NULLS LAST,
+       CASE WHEN h.vigencia_inicio > COALESCE(a.data_ato, CURRENT_DATE) THEN h.id END ASC NULLS LAST
      LIMIT 1
   ) exe_taxa_hist ON TRUE
   LEFT JOIN escreventes sig ON a.signatario_id = sig.id
@@ -203,8 +209,11 @@ const ATO_SELECT = `
     SELECT h.taxa
       FROM escreventes_taxas_historico h
      WHERE h.escrevente_id = a.signatario_id
-       AND h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE)
-     ORDER BY h.vigencia_inicio DESC, h.id DESC
+     ORDER BY
+       CASE WHEN h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE) THEN 0 ELSE 1 END,
+       CASE WHEN h.vigencia_inicio <= COALESCE(a.data_ato, CURRENT_DATE) THEN h.vigencia_inicio END DESC NULLS LAST,
+       CASE WHEN h.vigencia_inicio > COALESCE(a.data_ato, CURRENT_DATE) THEN h.created_at END ASC NULLS LAST,
+       CASE WHEN h.vigencia_inicio > COALESCE(a.data_ato, CURRENT_DATE) THEN h.id END ASC NULLS LAST
      LIMIT 1
   ) sig_taxa_hist ON TRUE
   LEFT JOIN escreventes re  ON a.escrevente_reembolso_id = re.id

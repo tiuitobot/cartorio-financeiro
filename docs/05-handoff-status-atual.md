@@ -82,6 +82,9 @@ Foram feitos os seguintes ajustes:
 - utilitario de reparo remoto via API para corrigir metadata legada sem acesso direto ao banco
 - ADR de UI reutilizavel com template unico para filtros, sheets, drilldowns e tabelas
 - inicio do `P2` com historico de taxas por vigencia e detalhamento de comissoes por escrevente
+- baseline historica retroativa de taxa em `1900-01-01` para corrigir comissao de atos anteriores a mudancas de vigencia
+- migration de backfill de baseline de taxas para escreventes ja existentes
+- validacao de `P2` na homologacao com browser e API, incluindo cenarios reais de comissao historica
 
 ## O que esta pronto
 
@@ -119,6 +122,12 @@ Foram feitos os seguintes ajustes:
   - modo dedicado de conferencia no modal/listagem
 - base de historico de taxas com vigencia em `escreventes`
 - detalhe de comissoes por escrevente em `Relatórios > Comissões`
+- `P2` fechado na homologacao, com:
+  - multiplos pagamentos por ato
+  - conferencia financeira separada
+  - diff automatico em correcoes
+  - historico de taxas com vigencia
+  - comissoes detalhadas por escrevente
 
 ### Pronto em nivel de conceito
 
@@ -143,8 +152,7 @@ Foram feitos os seguintes ajustes:
 - execucao ponta a ponta com banco real neste ambiente
 - definicao final de `executor_id` e `signatario_id` na importacao da planilha
 - lote real de homologacao com nomes reais do cartorio
-- fechamento completo do bloco financeiro do `P2` antes de seguir para historico de taxas
-- validacao funcional da vigencia de taxa na homologacao antes de promover para producao
+- promocao do `P2` da homologacao para producao apos validacao final do Henrique
 
 ## Pendencias prioritarias
 
@@ -163,6 +171,7 @@ Foram feitos os seguintes ajustes:
 4. validar migrations em banco real e automatizar o apply no deploy
 5. homologar a inferencia provisoria de pagamento da planilha
 6. validar em producao o saneamento do legado financeiro antes de continuar o `P2`
+7. limpar artefatos temporarios de QA na homologacao ou criar utilitario administrativo para isso
 
 ### Aplicacao
 
@@ -196,7 +205,7 @@ Foram feitos os seguintes ajustes:
 - os documentos de infra ainda sao guias, nao automacao completa
 - a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para regras finais de pagamento, executor e signatario
 - a frente financeira do `P2` mexe em dominio sensivel e exige confirmacao funcional do Henrique a cada rodada
-- a frente de historico de taxas tambem exige confirmacao funcional porque altera relatorios historicos
+- a frente de historico de taxas ja foi validada tecnicamente em homologacao, mas ainda exige aceite funcional antes de promover
 
 ## Arquivos-chave para continuidade
 
@@ -229,6 +238,8 @@ Foram feitos os seguintes ajustes:
 - [backend/db/migrations/0003_import_lotes_preview.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0003_import_lotes_preview.sql)
 - [backend/db/migrations/0004_atos_importacao_planilha.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0004_atos_importacao_planilha.sql)
 - [backend/db/migrations/0010_normalize_legacy_payment_fields.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0010_normalize_legacy_payment_fields.sql)
+- [backend/db/migrations/0011_escreventes_taxas_historico.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0011_escreventes_taxas_historico.sql)
+- [backend/db/migrations/0012_taxas_historico_backfill_baseline.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0012_taxas_historico_backfill_baseline.sql)
 - [backend/scripts/run-migrations.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/run-migrations.js)
 - [backend/scripts/create-admin.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/create-admin.js)
 - [scripts/repair-legacy-payment-metadata-via-api.mjs](/home/linuxadmin/repos/cartorio-financeiro/scripts/repair-legacy-payment-metadata-via-api.mjs)
@@ -237,6 +248,7 @@ Foram feitos os seguintes ajustes:
 - [backend/lib/audit.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/audit.js)
 - [backend/lib/list-scopes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/list-scopes.js)
 - [backend/lib/controle-diario-import.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/controle-diario-import.js)
+- [backend/lib/taxas-historico.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/taxas-historico.js)
 - [backend/routes/atos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/atos.js)
 - [backend/routes/importacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/importacoes.js)
 - [backend/routes/reembolsos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/reembolsos.js)

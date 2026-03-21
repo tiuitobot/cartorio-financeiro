@@ -64,6 +64,9 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [19-adr-ui-template-reutilizavel.md](/home/linuxadmin/repos/cartorio-financeiro/docs/19-adr-ui-template-reutilizavel.md)
   ADR que formaliza o template unico de UI e a obrigatoriedade de extrair componentes/padroes reutilizaveis para novas telas e refactors retroativos.
 
+- [20-p2-homologacao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/20-p2-homologacao.md)
+  Estado do `P2` validado na homologacao, com escopo coberto, correcao de historico de taxas e resultado da validacao de backend e UI.
+
 ## Resumo executivo
 
 - Curto prazo: subir o MVP no Railway para validar operacao com o cartorio.

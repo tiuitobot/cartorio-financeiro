@@ -29,6 +29,16 @@ CREATE TABLE IF NOT EXISTS escreventes_taxas_historico (
   CONSTRAINT ux_escreventes_taxas_historico UNIQUE (escrevente_id, vigencia_inicio)
 );
 
+INSERT INTO escreventes_taxas_historico(escrevente_id, taxa, vigencia_inicio, created_at)
+SELECT e.id, e.taxa, DATE '1900-01-01', NOW()
+  FROM escreventes e
+ WHERE NOT EXISTS (
+   SELECT 1
+     FROM escreventes_taxas_historico h
+    WHERE h.escrevente_id = e.id
+      AND h.vigencia_inicio = DATE '1900-01-01'
+ );
+
 CREATE TABLE IF NOT EXISTS atos (
   id                      SERIAL PRIMARY KEY,
   controle                VARCHAR(20) NOT NULL,
