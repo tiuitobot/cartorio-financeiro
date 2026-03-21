@@ -168,7 +168,8 @@ export default function App() {
     await carregarDados();
   };
 
-  const salvarAto = async (form) => {
+  const persistirAto = async (form, options = {}) => {
+    const { closeModal = true } = options;
     try {
       let ato;
       if (form.id && typeof form.id === 'number' && form.id < 1e12) {
@@ -178,8 +179,18 @@ export default function App() {
         ato = normalizeAto(await api.criarAto(form));
         setAtos(prev => sortAtos([...prev, ato]));
       }
-      setModalAto(null);
+      if (closeModal) setModalAto(null);
+      else setModalAto(ato);
+      return ato;
     } catch (e) { setErro('Erro ao salvar ato: ' + e.message); }
+  };
+
+  const salvarAto = async (form) => {
+    await persistirAto(form, { closeModal: true });
+  };
+
+  const salvarAtoSemFechar = async (form) => {
+    await persistirAto(form, { closeModal: false });
   };
 
   const salvarEscrevente = async (form) => {
@@ -394,6 +405,7 @@ export default function App() {
           ato={modalAto === 'novo' ? null : modalAto}
           onClose={() => setModalAto(null)}
           onSave={salvarAto}
+          onSaveStayOpen={salvarAtoSemFechar}
           escreventes={escreventesOrdenados}
           userRole={userRole}
           userId={userId}

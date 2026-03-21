@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FInput, FSel, Btn, ST, CurrencyInput } from '../ui/index.jsx';
 import { Badge } from '../ui/index.jsx';
 import { padControle, fmtLivro, fmtPagina, fmtRef, fmt } from '../../utils/format.js';
@@ -175,10 +175,14 @@ function buildInitialForm(ato) {
   };
 }
 
-export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, userId }) {
+export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreventes, userRole, userId }) {
   const [form, setForm] = useState(() => buildInitialForm(ato));
   const [corrMsg, setCorrMsg] = useState('');
   const [showAjusteComissao, setShowAjusteComissao] = useState(false);
+
+  useEffect(() => {
+    setForm(buildInitialForm(ato));
+  }, [ato]);
 
   const set = (k, v) => setForm((current) => ({ ...current, [k]: v }));
   const total = toMoney(form.emolumentos) + toMoney(form.repasses) + toMoney(form.issqn) + toMoney(form.reembolso_tabeliao) + toMoney(form.reembolso_escrevente);
@@ -198,6 +202,7 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
 
   const podeEditar = userRole === 'admin' || userRole === 'financeiro' || userRole === 'chefe_financeiro';
   const podeVerCom = podeEditar || (ato && [ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId));
+  const hasPersistedAto = Boolean(form.id && typeof form.id === 'number' && form.id < 1e12);
 
   const syncPagamentos = (updater) => {
     setForm((current) => {
@@ -311,6 +316,12 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
   const escOpts = [{ value: '', label: '— Nenhum —' }, ...escreventes.map((escrevente) => ({ value: escrevente.id, label: `${escrevente.nome} (${escrevente.taxa}%)` }))];
   const formaOpts = [{ value: '', label: '— Selecione —' }, ...FORMAS_PAGAMENTO.map((forma) => ({ value: forma, label: forma }))];
 
+  const handleSalvarAto = () => onSave(form);
+  const handleSalvarConferencia = () => {
+    if (onSaveStayOpen) onSaveStayOpen(form);
+    else onSave(form);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#00000060', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 880, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 48px #0f2a5540' }}>
@@ -399,6 +410,8 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 2. Use <strong>Conferir este lançamento</strong> em cada item, ou <strong>Conferir todos os lançamentos</strong>.
                 <br />
                 3. O <strong>Status oficial</strong> só considera o que já foi conferido pelo financeiro.
+                <br />
+                4. Atos antigos já lançados aparecem aqui automaticamente como lançamento legado, prontos para conferência.
               </div>
             </div>
             <div style={{ marginBottom: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
@@ -468,6 +481,11 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
                 <Btn variant="secondary" onClick={addPagamento}>+ Adicionar lançamento</Btn>
                 {pagamentosValidos.some((pagamento) => !pagamento.confirmado_financeiro) && (
                   <Btn variant="success" onClick={confirmarTodosPagamentos}>✅ Conferir todos os lançamentos</Btn>
+                )}
+                {pagamentosValidos.length > 0 && (
+                  <Btn variant="warning" onClick={handleSalvarConferencia}>
+                    {hasPersistedAto ? '💾 Salvar conferência financeira' : '💾 Criar ato e salvar conferência'}
+                  </Btn>
                 )}
               </div>
             )}
@@ -593,7 +611,7 @@ export default function ModalAto({ ato, onClose, onSave, escreventes, userRole, 
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Btn variant="secondary" onClick={onClose}>Cancelar</Btn>
-            {podeEditar && <Btn onClick={() => onSave(form)}>💾 Salvar</Btn>}
+            {podeEditar && <Btn onClick={handleSalvarAto}>💾 Salvar ato</Btn>}
           </div>
         </div>
       </div>
