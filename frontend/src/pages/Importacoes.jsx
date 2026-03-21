@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { Badge, Btn, Card, FSel, ST, StickyXScroll } from '../components/ui/index.jsx';
 import { fmt, fmtDate, padControle } from '../utils/format.js';
@@ -81,6 +81,7 @@ function ValidationAccordion({ title, color, borderColor, countLabel, items, emp
 }
 
 export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro }) {
+  const arquivoInputId = `arquivo-importacao-${useId().replace(/:/g, '')}`;
   const [arquivo, setArquivo] = useState(null);
   const [inputKey, setInputKey] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -338,10 +339,11 @@ export default function Importacoes({ refreshKey = 0, onImportSuccess, onErro })
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
+              <label htmlFor={arquivoInputId} style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
                 Arquivo .xlsx
               </label>
               <input
+                id={arquivoInputId}
                 key={inputKey}
                 type="file"
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

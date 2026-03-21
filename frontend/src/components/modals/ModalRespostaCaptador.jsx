@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Btn } from '../ui/index.jsx';
 
 export default function ModalRespostaCaptador({ reiv, escreventes, onClose, onSave }) {
+  const justificativaId = `justificativa-${useId().replace(/:/g, '')}`;
   const [justificativa, setJustificativa] = useState('');
   const esc = escreventes.find(e => e.id === reiv.escrevente_id);
 
@@ -23,8 +24,8 @@ export default function ModalRespostaCaptador({ reiv, escreventes, onClose, onSa
             <Btn variant="success" style={{ flex: 1 }} onClick={() => onSave({ ...reiv, status: 'aceita' })}>✅ Aceitar</Btn>
           </div>
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Ou recusar com justificativa</label>
-            <textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} rows={3} placeholder="Descreva o motivo da recusa..." style={{ width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 14, resize: 'vertical', boxSizing: 'border-box' }} />
+            <label htmlFor={justificativaId} style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Ou recusar com justificativa</label>
+            <textarea id={justificativaId} value={justificativa} onChange={e => setJustificativa(e.target.value)} rows={3} placeholder="Descreva o motivo da recusa..." style={{ width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 14, resize: 'vertical', boxSizing: 'border-box' }} />
             <Btn variant="danger" style={{ marginTop: 8, width: '100%' }} onClick={() => { if (justificativa.trim()) onSave({ ...reiv, status: 'recusada', justificativa }); }}>❌ Recusar com justificativa</Btn>
           </div>
           <Btn variant="secondary" onClick={onClose} style={{ width: '100%' }}>Fechar</Btn>

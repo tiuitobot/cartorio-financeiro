@@ -1,5 +1,19 @@
+import { useId } from 'react';
 import StickyXScroll from './StickyXScroll.jsx';
 export { FilterChip, ActiveFilterTag, Sheet } from './FilterControls.jsx';
+
+const fieldLabelStyle = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: '#64748b',
+  textTransform: 'uppercase',
+  letterSpacing: 0.5,
+};
+
+function useFieldId(id, prefix) {
+  const generatedId = useId().replace(/:/g, '');
+  return id || `${prefix}-${generatedId}`;
+}
 
 export const Badge = ({ label, color }) => (
   <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
@@ -13,21 +27,29 @@ export const Card = ({ children, style = {} }) => (
   </div>
 );
 
-export const FInput = ({ label, ...props }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-    {label && <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>}
-    <input {...props} style={{ border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#1e293b', outline: 'none', background: props.disabled ? '#f1f5f9' : '#f8fafc', ...props.style }} />
-  </div>
-);
+export const FInput = ({ label, id, style, ...props }) => {
+  const fieldId = useFieldId(id, 'input');
 
-export const FSel = ({ label, options, ...props }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-    {label && <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>}
-    <select {...props} style={{ border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#1e293b', background: '#f8fafc', outline: 'none', ...props.style }}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  </div>
-);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {label && <label htmlFor={fieldId} style={fieldLabelStyle}>{label}</label>}
+      <input id={fieldId} {...props} style={{ border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#1e293b', outline: 'none', background: props.disabled ? '#f1f5f9' : '#f8fafc', ...style }} />
+    </div>
+  );
+};
+
+export const FSel = ({ label, id, options, style, ...props }) => {
+  const fieldId = useFieldId(id, 'select');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {label && <label htmlFor={fieldId} style={fieldLabelStyle}>{label}</label>}
+      <select id={fieldId} {...props} style={{ border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#1e293b', background: '#f8fafc', outline: 'none', ...style }}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+};
 
 export const Btn = ({ children, variant = 'primary', ...props }) => {
   const vs = {
@@ -51,7 +73,8 @@ export const ST = ({ children }) => (
   </div>
 );
 
-export function CurrencyInput({ label, value = 0, onChange, disabled, style }) {
+export function CurrencyInput({ label, id, value = 0, onChange, disabled, style }) {
+  const fieldId = useFieldId(id, 'currency');
   const centValue = Math.round((value || 0) * 100);
   const display = (centValue / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   const handleChange = e => {
@@ -61,8 +84,9 @@ export function CurrencyInput({ label, value = 0, onChange, disabled, style }) {
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {label && <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>}
+      {label && <label htmlFor={fieldId} style={fieldLabelStyle}>{label}</label>}
       <input
+        id={fieldId}
         value={display}
         onChange={handleChange}
         disabled={disabled}

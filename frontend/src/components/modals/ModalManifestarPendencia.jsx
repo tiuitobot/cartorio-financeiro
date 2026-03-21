@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Btn, FInput } from '../ui/index.jsx';
 
 export default function ModalManifestarPendencia({ onClose, onSubmit }) {
+  const mensagemId = `manifestacao-${useId().replace(/:/g, '')}`;
   const [controle, setControle] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [loading, setLoading] = useState(false);
@@ -76,10 +77,11 @@ export default function ModalManifestarPendencia({ onClose, onSubmit }) {
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <label htmlFor={mensagemId} style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               Manifestação
             </label>
             <textarea
+              id={mensagemId}
               value={mensagem}
               onChange={(e) => setMensagem(e.target.value)}
               disabled={loading}
