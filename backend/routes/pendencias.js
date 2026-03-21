@@ -200,6 +200,13 @@ router.put('/:id', authMiddleware, requirePerfil('admin', 'financeiro', 'chefe_f
     }
 
     const metadata = pendencia.metadata || {};
+    if (!solucionado && pendencia.origem === 'automatica') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        erro: 'Pendências automáticas devem ser reabertas na origem do problema',
+      });
+    }
+
     const { rows } = await client.query(
       `UPDATE pendencias
           SET solucionado = $2,

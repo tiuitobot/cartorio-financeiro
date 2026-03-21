@@ -49,6 +49,10 @@ function origemLabel(origem) {
   return origem === 'escrevente' ? 'Escrevente' : 'Automática';
 }
 
+function isAutomaticPendencia(item) {
+  return item?.origem === 'automatica';
+}
+
 function uniqueIds(values = []) {
   return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
 }
@@ -927,6 +931,13 @@ export default function Relatorios({
                 <tbody>
                   {pendenciasFiltradas.map((item, index) => {
                     const ato = atos.find((atoAtual) => atoAtual.id === item.ato_id) || null;
+                    const automatic = isAutomaticPendencia(item);
+                    const canOpenConference = (
+                      item.tipo === 'confirmacao_pendente'
+                      && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole)
+                      && item.pode_abrir_ato
+                      && ato
+                    );
                     return (
                       <tr key={item.id} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
                         <TD c={fmtDate(item.criado_em)} />
@@ -950,7 +961,16 @@ export default function Relatorios({
                         </td>
                         <td style={{ padding: '10px 14px' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                            {item.pode_abrir_ato && ato && (
+                            {canOpenConference && (
+                              <Btn
+                                variant="warning"
+                                onClick={() => onOpenAto?.({ ...ato, _openSection: 'financeiro' })}
+                                style={{ fontSize: 12, padding: '6px 12px' }}
+                              >
+                                Abrir conferência
+                              </Btn>
+                            )}
+                            {item.pode_abrir_ato && ato && !canOpenConference && (
                               <Btn variant="secondary" onClick={() => onOpenAto?.(ato)} style={{ fontSize: 12, padding: '6px 12px' }}>
                                 Abrir ato
                               </Btn>
@@ -970,13 +990,15 @@ export default function Relatorios({
                             )}
                             {['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && item.solucionado && (
                               <>
-                                <Btn
-                                  variant="warning"
-                                  onClick={async () => { await onAtualizarPendencia?.(item.id, { solucionado: false }); }}
-                                  style={{ fontSize: 12, padding: '6px 12px' }}
-                                >
-                                  Reabrir
-                                </Btn>
+                                {!automatic && (
+                                  <Btn
+                                    variant="warning"
+                                    onClick={async () => { await onAtualizarPendencia?.(item.id, { solucionado: false }); }}
+                                    style={{ fontSize: 12, padding: '6px 12px' }}
+                                  >
+                                    Reabrir
+                                  </Btn>
+                                )}
                                 <Btn
                                   variant="secondary"
                                   onClick={async () => { await onOcultarPendencia?.(item.id); }}
