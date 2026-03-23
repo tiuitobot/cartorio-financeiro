@@ -1,6 +1,6 @@
 # Handoff - Status Atual
 
-Data de referencia: 21/03/2026.
+Data de referencia: 23/03/2026.
 
 ## Resumo do que foi feito
 
@@ -98,6 +98,14 @@ Foram feitos os seguintes ajustes:
   - pendencia automatica deve ser reaberta na origem do problema
 - atalho `Abrir conferencia` nas pendencias automaticas de confirmacao financeira
 - validacao do modulo de pendencias em browser e API antes da promocao para producao
+- aplicacao dos fixes do Henrique (fixes 01-12 consolidados):
+  - taxa 0% com migration, calculo de comissao e UI
+  - tipo_ato com constraint, normalizacao de dados legados e dropdown no modal
+  - visibilidade por compartilhamento restrita a captador-only (frontend e backend)
+  - declaracao de participacao por funcao especifica
+  - paginacao client-side em Atos e Relatorios (5 tabs)
+  - Sheet com largura configuravel e formatacao de comissoes
+- registro de incidentes de deploy em [docs/22-deploy-incidents-2026-03-23.md](/home/linuxadmin/repos/cartorio-financeiro/docs/22-deploy-incidents-2026-03-23.md)
 
 ## O que esta pronto
 
@@ -225,8 +233,17 @@ Foram feitos os seguintes ajustes:
 - a migration de unicidade pode falhar em bases legadas com duplicidade valida
 - os documentos de infra ainda sao guias, nao automacao completa
 - a importacao da planilha ja grava `captador_id`, mas ainda depende de homologacao para regras finais de pagamento, executor e signatario
-- a frente financeira do `P2` mexe em dominio sensivel e exige confirmacao funcional do Henrique a cada rodada
 - o modulo de pendencias foi promovido para producao, mas ainda pode sofrer ajuste fino de nomenclatura e UX apos uso real do cartorio
+
+### Armadilhas operacionais conhecidas (deploy Railway)
+
+> Detalhes completos em [docs/22-deploy-incidents-2026-03-23.md](/home/linuxadmin/repos/cartorio-financeiro/docs/22-deploy-incidents-2026-03-23.md)
+
+- **NUNCA executar `railway up` de dentro de `frontend/`** — o Railway auto-detecta como site estatico Caddy e mata o backend Express. Sempre do root do projeto.
+- **Healthcheck timeout** — o container demora ~5-7min para iniciar (migrations). O `healthcheckTimeout` esta em 600s no `railway.json`. Se o healthcheck falhar mas o `curl /api/health` funcionar, remover temporariamente o `healthcheckPath`, redeployar, e restaurar depois.
+- **Migrations com CHECK constraints** — verificar dados existentes com `SELECT DISTINCT` antes de adicionar constraints. Dados legados com digitacao livre causam falha em loop.
+- **Acesso ao banco de fora do Railway** — `railway run` nao funciona para scripts de banco (`postgres.railway.internal` nao resolve localmente). Usar `DATABASE_PUBLIC_URL` do servico Postgres via `railway variables --json`.
+- **Link do Railway local** — apos qualquer operacao no homolog, relinkar para producao: `railway link -p secure-recreation -s amiable-perfection -e production`. Esquecer de relinkar pode causar deploy acidental em producao.
 
 ## Arquivos-chave para continuidade
 
