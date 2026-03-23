@@ -106,8 +106,8 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, requirePerfil('admin'), async (req, res) => {
   const { nome, cargo, email, taxa, compartilhar_com = [] } = req.body;
   const taxaInt = Number.parseInt(taxa, 10);
-  if (!nome || ![6,20,30].includes(taxaInt))
-    return res.status(400).json({ erro: 'Nome e taxa (6, 20 ou 30) obrigatórios' });
+  if (!nome || ![0,6,20,30].includes(taxaInt))
+    return res.status(400).json({ erro: 'Nome e taxa (0, 6, 20 ou 30) obrigatórios' });
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -157,9 +157,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     if (isAdmin) {
       const taxaInt = Number.parseInt(taxa, 10);
-      if (![6,20,30].includes(taxaInt)) {
+      if (![0,6,20,30].includes(taxaInt)) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ erro: 'Nome e taxa (6, 20 ou 30) obrigatórios' });
+        return res.status(400).json({ erro: 'Nome e taxa (0, 6, 20 ou 30) obrigatórios' });
       }
       const vigenciaInicio = normalizeVigenciaInicio(req.body.taxa_vigencia_inicio) || todayDateString();
       await ensureTaxaHistoricoBaseline(client, {

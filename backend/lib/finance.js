@@ -1,5 +1,23 @@
 const { buildPagamentoState } = require('./pagamentos');
 
+// Tipos de ato que NÃO geram comissão para nenhum escrevente,
+// independentemente da taxa contratual ou da função (captador/executor/signatário).
+const TIPOS_SEM_COMISSAO = ['certidao', 'testamento'];
+
+// Normaliza tipo_ato para comparação: minúsculas, sem acentos, sem espaços extras.
+function normalizeTipoAto(tipo) {
+  if (!tipo) return null;
+  return tipo
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function tipoAtoIsento(tipo) {
+  return TIPOS_SEM_COMISSAO.includes(normalizeTipoAto(tipo));
+}
+
 function toNumber(value) {
   const parsed = Number.parseFloat(value || 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -57,6 +75,10 @@ function calcularComissoes(ato) {
 
   if (!ato.captador_id) return [];
 
+  // Regra 1 — Tipos isentos: certidão e testamento nunca geram comissão,
+  // independentemente da taxa do escrevente ou da função exercida.
+  if (tipoAtoIsento(ato.tipo_ato)) return [];
+
   const captador = {
     id: ato.captador_id,
     nome: ato.captador_nome,
@@ -69,13 +91,24 @@ function calcularComissoes(ato) {
     ? { id: ato.signatario_id, nome: ato.signatario_nome, taxa: Number.parseInt(ato.signatario_taxa || 0, 10) }
     : null;
 
-  if (!captador.nome || !captador.taxa) return [];
+  if (!captador.nome) return [];
 
   const base = toNumber(ato.emolumentos);
   const temExecutor = Boolean(executor);
   const temSignatario = Boolean(signatario);
   const valorSignatario = 20;
   const resultado = [];
+
+  // Regra 2 — Taxa 0%:
+  // - Captador com taxa 0%: recebe R$0,00 como captador e R$0,00 como executor.
+  // - Executor com taxa 0%: recebe R$0,00.
+  // - Signatário com taxa 0%: recebe R$20,00 (remuneração fixa, independe da taxa).
+  if (captador.taxa === 0) {
+    if (temSignatario) {
+      resultado.push({ escrevente_id: signatario.id, nome: signatario.nome, papel: 'Signatário', pct: null, fixo: valorSignatario, total: valorSignatario });
+    }
+    return resultado;
+  }
 
   if (captador.taxa === 30) {
     const percentualCaptador = temExecutor ? 24 : 30;
@@ -97,7 +130,7 @@ function calcularComissoes(ato) {
         papel: 'Executor',
         pct: 6,
         fixo: 0,
-        total: (base * 6) / 100,
+        total: (executor.taxa === 0) ? 0 : (base * 6) / 100,
       });
     }
     if (temSignatario) {
@@ -132,7 +165,7 @@ function calcularComissoes(ato) {
         papel: 'Executor',
         pct: 6,
         fixo: 0,
-        total: (base * 6) / 100,
+        total: (executor.taxa === 0) ? 0 : (base * 6) / 100,
       });
     }
     if (temSignatario) {
@@ -163,7 +196,7 @@ function calcularComissoes(ato) {
       papel: 'Executor',
       pct: 6,
       fixo: 0,
-      total: (base * 6) / 100,
+      total: (executor.taxa === 0) ? 0 : (base * 6) / 100,
     });
   }
   if (temSignatario) {
@@ -244,6 +277,8 @@ function enrichAtoFinance(ato) {
 }
 
 module.exports = {
+  normalizeTipoAto,
+  tipoAtoIsento,
   calcStatus,
   totalAto,
   reembolsoDevidoEscrevente,

@@ -24,7 +24,21 @@ export default function ModalDeclaroParticipacao({ userId, atos, escreventes, on
     else { setAtoEncontrado(ato); setErro(''); }
   };
 
-  const jaParticipa = atoEncontrado && [atoEncontrado.captador_id, atoEncontrado.executor_id, atoEncontrado.signatario_id].includes(userId);
+  // Vínculo de compartilhamento NÃO é participação.
+  // A verificação deve ser feita por função, não por presença genérica no ato.
+  // Regras:
+  //   - Captador: não pode ser reivindicado via "Declaro Participação" (é definido no lançamento)
+  //   - Executor: bloqueado apenas se userId já é o executor_id do ato
+  //   - Signatário: bloqueado apenas se userId já é o signatario_id do ato
+  // Consequência: um captador PODE declarar participação como executor ou signatário do mesmo ato.
+  const jaOcupaFuncao = atoEncontrado
+    ? funcao === 'executor'
+      ? atoEncontrado.executor_id === userId
+      : atoEncontrado.signatario_id === userId
+    : false;
+
+  // Aviso informativo (não bloqueante) quando o escrevente já é captador do ato
+  const eCaptador = atoEncontrado && atoEncontrado.captador_id === userId;
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#00000060', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -38,7 +52,7 @@ export default function ModalDeclaroParticipacao({ userId, atos, escreventes, on
         </div>
         <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#1e40af' }}>
-            ℹ️ Use este formulário para declarar sua participação em um ato que já está no sistema mas não registra sua função.
+            Use este formulário para declarar sua participação em um ato que já está no sistema mas não registra sua função.
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
@@ -58,10 +72,19 @@ export default function ModalDeclaroParticipacao({ userId, atos, escreventes, on
                 <div><span style={{ color: '#64748b' }}>Executor: </span><strong>{escreventes.find(e => e.id === atoEncontrado.executor_id)?.nome || 'Não definido'}</strong></div>
                 <div><span style={{ color: '#64748b' }}>Signatário: </span><strong>{escreventes.find(e => e.id === atoEncontrado.signatario_id)?.nome || 'Não definido'}</strong></div>
               </div>
-              {jaParticipa && <div style={{ marginTop: 10, padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13, color: '#92400e' }}>⚠️ Você já está registrado neste ato. Não é necessário declarar participação.</div>}
+              {eCaptador && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e40af' }}>
+                  Você é o captador deste ato. Ainda assim pode declarar participação como Executor ou Signatário, se for o caso.
+                </div>
+              )}
+              {jaOcupaFuncao && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
+                  Você já está registrado como <strong>{funcao === 'executor' ? 'Executor' : 'Signatário'}</strong> neste ato.
+                </div>
+              )}
             </div>
           )}
-          {atoEncontrado && !jaParticipa && (
+          {atoEncontrado && !jaOcupaFuncao && (
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Minha função neste ato</label>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -75,7 +98,7 @@ export default function ModalDeclaroParticipacao({ userId, atos, escreventes, on
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Btn variant="secondary" onClick={onClose}>Cancelar</Btn>
-            {atoEncontrado && !jaParticipa && (
+            {atoEncontrado && !jaOcupaFuncao && (
               <Btn onClick={() => onSubmit({ ato_id: atoEncontrado.id, funcao })}>
                 📝 Enviar Declaração
               </Btn>

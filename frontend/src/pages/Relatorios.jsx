@@ -1,10 +1,23 @@
 import { useMemo, useState } from 'react';
+import { usePagination, Pagination } from '../components/ui/Pagination.jsx';
 import { Card, FInput, FSel, Btn, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
 import { padControle, fmt, fmtDate, sColor } from '../utils/format.js';
 import { exportXLSX, ALL_COLS } from '../utils/export.js';
 import { FORMAS_PAGAMENTO } from '../constants.js';
 import { atoMatchesSearch } from '../utils/search.js';
 import ModalPgtoReembolso from '../components/modals/ModalPgtoReembolso.jsx';
+
+// Formata o campo "Percentual/Fixo" do detalhamento de comissões.
+function formatPctFixo(pct, fixo) {
+  if (pct == null) {
+    return `R$${Number(fixo || 0).toFixed(2).replace('.', ',')} (fixo)`;
+  }
+  const deducao = Number(fixo || 0);
+  if (deducao < 0) {
+    return `${pct}% − R$${Math.abs(deducao).toFixed(2).replace('.', ',')}`;
+  }
+  return `${pct}%`;
+}
 
 const hoje = new Date();
 const mesAtual = hoje.toISOString().slice(0, 7);
@@ -254,6 +267,17 @@ export default function Relatorios({
       });
   }, [pendencias, pStatus, pTipo, pEscrevente, pControle, pInicio, pFim, atosById, escreventesById]);
 
+  // Paginação por tab
+  const storagePrefix = `pagination_rel_${userRole || 'anon'}`;
+  const pagAtosRel    = usePagination(atosFiltrados,       `${storagePrefix}_atos`);
+  const pagPendencias = usePagination(pendenciasFiltradas, `${storagePrefix}_pend`);
+  const pagReembolsos = usePagination(dadosRembEsc,        `${storagePrefix}_remb`);
+  const pagHistorico  = usePagination(
+    [...pagamentosReembolso].sort((a, b) => b.data.localeCompare(a.data)),
+    `${storagePrefix}_hist`
+  );
+  const pagComDetalhe = usePagination(dadosComDetalhe,     `${storagePrefix}_com_detalhe`);
+
   const captadorNome = escreventes.find((item) => item.id === Number.parseInt(fCaptador, 10))?.nome;
   const hasAtosFilters = Boolean(fStatus || fCaptador || fInicio || fFim || fBusca);
   const advancedAtosFilterCount = [fCaptador, fInicio, fFim].filter(Boolean).length;
@@ -466,7 +490,7 @@ export default function Relatorios({
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1000 }}>
                 <thead><tr>{selectedCols.map((key) => { const col = ALL_COLS.find((item) => item.key === key); return <TH key={key} c={col?.label || key} />; })}</tr></thead>
                 <tbody>
-                  {atosFiltrados.map((ato, index) => (
+                  {pagAtosRel.paginatedItems.map((ato, index) => (
                     <tr key={ato.id} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
                       {selectedCols.map((key) => {
                         const col = ALL_COLS.find((item) => item.key === key);
@@ -483,7 +507,15 @@ export default function Relatorios({
                 </tbody>
               </table>
             </StickyXScroll>
-            {atosFiltrados.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Nenhum ato encontrado.</div>}
+            {atosFiltrados.length === 0
+              ? <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Nenhum ato encontrado.</div>
+              : <Pagination
+                  page={pagAtosRel.page} setPage={pagAtosRel.setPage}
+                  pageSize={pagAtosRel.pageSize} setPageSize={pagAtosRel.setPageSize}
+                  totalPages={pagAtosRel.totalPages}
+                  totalItems={atosFiltrados.length}
+                />
+            }
           </Card>
         </div>
       )}
@@ -728,6 +760,7 @@ export default function Relatorios({
             title={escreventeDetalhe ? `Comissões de ${escreventeDetalhe.nome}` : 'Detalhe de comissões'}
             subtitle="Detalhamento por ato no período filtrado, usando a taxa histórica vigente em cada data."
             onClose={() => setSelectedComDetalheId(null)}
+            width="60vw"
             footer={(
               <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <Btn
@@ -738,7 +771,7 @@ export default function Relatorios({
                       Livro: item.livro,
                       Página: item.pagina,
                       Papel: item.papel,
-                      'Percentual/Fixo': item.pct != null ? `${item.pct}%` : item.fixo,
+                      'Percentual/Fixo': formatPctFixo(item.pct, item.fixo),
                       Comissão: item.total,
                     })),
                     'Detalhe Comissões',
@@ -776,25 +809,31 @@ export default function Relatorios({
                       </tr>
                     </thead>
                     <tbody>
-                      {dadosComDetalhe.map((item, index) => (
+                      {pagComDetalhe.paginatedItems.map((item, index) => (
                         <tr key={`${item.ato_id}-${item.papel}-${index}`} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
                           <TD c={fmtDate(item.data_ato)} />
                           <TD c={padControle(item.controle)} bold />
                           <TD c={`${item.livro}/${item.pagina}`} />
                           <TD c={item.papel} />
                           <TD c={fmt(item.emolumentos)} />
-                          <TD c={item.pct != null ? `${item.pct}%` : fmt(item.fixo)} />
+                          <TD c={formatPctFixo(item.pct, item.fixo)} />
                           <TD c={fmt(item.total)} bold />
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </StickyXScroll>
-                {dadosComDetalhe.length === 0 && (
-                  <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
-                    Nenhuma comissão encontrada para este escrevente no período atual.
-                  </div>
-                )}
+                {dadosComDetalhe.length === 0
+                  ? <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
+                      Nenhuma comissão encontrada para este escrevente no período atual.
+                    </div>
+                  : <Pagination
+                      page={pagComDetalhe.page} setPage={pagComDetalhe.setPage}
+                      pageSize={pagComDetalhe.pageSize} setPageSize={pagComDetalhe.setPageSize}
+                      totalPages={pagComDetalhe.totalPages}
+                      totalItems={dadosComDetalhe.length}
+                    />
+                }
               </div>
             </div>
           </Sheet>
@@ -929,7 +968,7 @@ export default function Relatorios({
                   </tr>
                 </thead>
                 <tbody>
-                  {pendenciasFiltradas.map((item, index) => {
+                  {pagPendencias.paginatedItems.map((item, index) => {
                     const ato = atos.find((atoAtual) => atoAtual.id === item.ato_id) || null;
                     const automatic = isAutomaticPendencia(item);
                     const canOpenConference = (
@@ -1016,11 +1055,17 @@ export default function Relatorios({
                 </tbody>
               </table>
             </StickyXScroll>
-            {pendenciasFiltradas.length === 0 && (
-              <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>
-                Nenhuma pendência encontrada com os filtros atuais.
-              </div>
-            )}
+            {pendenciasFiltradas.length === 0
+              ? <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>
+                  Nenhuma pendência encontrada com os filtros atuais.
+                </div>
+              : <Pagination
+                  page={pagPendencias.page} setPage={pagPendencias.setPage}
+                  pageSize={pagPendencias.pageSize} setPageSize={pagPendencias.setPageSize}
+                  totalPages={pagPendencias.totalPages}
+                  totalItems={pendenciasFiltradas.length}
+                />
+            }
           </Card>
         </div>
       )}
@@ -1052,7 +1097,7 @@ export default function Relatorios({
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 840 }}>
                     <thead><tr style={{ background: '#f1f5f9' }}>{['Escrevente', 'Devido ao escrevente', 'Pago pelo cartório', 'Saldo', ''].map((header) => <TH key={header} c={header} />)}</tr></thead>
                     <tbody>
-                      {dadosRembEsc.map((item, index) => (
+                      {pagReembolsos.paginatedItems.map((item, index) => (
                         <tr key={item.id} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
                           <TD c={item.nome} bold />
                           <TD c={fmt(item.lancado)} />
@@ -1065,6 +1110,12 @@ export default function Relatorios({
                   </table>
                 </StickyXScroll>
               )}
+              <Pagination
+                page={pagReembolsos.page} setPage={pagReembolsos.setPage}
+                pageSize={pagReembolsos.pageSize} setPageSize={pagReembolsos.setPageSize}
+                totalPages={pagReembolsos.totalPages}
+                totalItems={dadosRembEsc.length}
+              />
           </Card>
 
           {pagamentosReembolso.length > 0 && (
@@ -1074,7 +1125,7 @@ export default function Relatorios({
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 980 }}>
                   <thead><tr style={{ background: '#f1f5f9' }}>{['Data', 'Escrevente', 'Valor', 'Status', 'Ações', 'Obs.'].map((header) => <TH key={header} c={header} />)}</tr></thead>
                   <tbody>
-                    {[...pagamentosReembolso].sort((a, b) => b.data.localeCompare(a.data)).map((pagamento, index) => {
+                    {pagHistorico.paginatedItems.map((pagamento, index) => {
                       const escrevente = escreventes.find((item) => item.id === pagamento.escrevente_id);
                       const isOwner = userRole === 'escrevente' && userId === pagamento.escrevente_id;
                       const badge = pagamento.contestado_escrevente
@@ -1113,6 +1164,12 @@ export default function Relatorios({
                   </tbody>
                 </table>
               </StickyXScroll>
+              <Pagination
+                page={pagHistorico.page} setPage={pagHistorico.setPage}
+                pageSize={pagHistorico.pageSize} setPageSize={pagHistorico.setPageSize}
+                totalPages={pagHistorico.totalPages}
+                totalItems={pagamentosReembolso.length}
+              />
             </Card>
           )}
         </div>

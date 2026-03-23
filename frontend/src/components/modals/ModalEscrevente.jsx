@@ -31,10 +31,17 @@ export default function ModalEscrevente({ init, onClose, onSave, todosEscrevente
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Taxa Contratual</label>
             <div style={{ display: 'flex', gap: 10 }}>
-              {[6, 20, 30].map(t => (
+              {[0, 6, 20, 30].map(t => (
                 <button key={t} onClick={() => set('taxa', t)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `2px solid ${form.taxa === t ? '#1e3a5f' : '#e2e8f0'}`, background: form.taxa === t ? '#1e3a5f' : '#f8fafc', color: form.taxa === t ? '#fff' : '#64748b', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>{t}%</button>
               ))}
             </div>
+            {Number(form.taxa) === 0 && (
+              <div style={{ marginTop: 8, padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                Taxa 0%: este escrevente não receberá comissão como captador ou executor.
+                Receberá R$20,00 apenas se for signatário de ato que gere comissão
+                (escritura, ata, procuração ou apostila).
+              </div>
+            )}
           </div>
           {!!init.id && outros.length > 0 && (
             <div>

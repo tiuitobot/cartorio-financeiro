@@ -2,6 +2,7 @@ const router = require('express').Router();
 const db = require('../db');
 const { authMiddleware, requirePerfil } = require('../middleware/auth');
 const { calcStatus, enrichAtoFinance } = require('../lib/finance');
+const { buildAtosScope } = require('../lib/list-scopes');
 const {
   formatDatePtBr,
   normalizeNullableString,
@@ -130,14 +131,15 @@ function handleAtoWriteError(error, res) {
 
 async function podeVerAto(ato, user, dbClient) {
   if (['admin','financeiro','chefe_financeiro'].includes(user.perfil)) return true;
-  const ids = [ato.captador_id, ato.executor_id, ato.signatario_id];
-  if (user.escrevente_id && ids.includes(user.escrevente_id)) return true;
-  // Verifica compartilhamentos
+  // Participação direta
+  if (user.escrevente_id && [ato.captador_id, ato.executor_id, ato.signatario_id].includes(user.escrevente_id)) return true;
+  // Vínculo: apenas se captador declarou compartilhar comigo (captador-only, não transitivo)
+  if (!ato.captador_id || !user.escrevente_id) return false;
   const { rows } = await dbClient.query(
-    'SELECT compartilha_com_id FROM escreventes_compartilhamento WHERE escrevente_id=$1', [user.escrevente_id]
+    'SELECT 1 FROM escreventes_compartilhamento WHERE escrevente_id=$1 AND compartilha_com_id=$2 LIMIT 1',
+    [ato.captador_id, user.escrevente_id]
   );
-  const compartilhados = rows.map(r => r.compartilha_com_id);
-  return ids.some(id => compartilhados.includes(id));
+  return rows.length > 0;
 }
 
 function mapAtoRows(rows) {
@@ -306,16 +308,19 @@ router.get('/', authMiddleware, async (req, res) => {
       i += 1;
     }
 
-    // Filtro de visibilidade para escreventes
-    if (req.user.perfil === 'escrevente' && req.user.escrevente_id) {
-      const eid = req.user.escrevente_id;
-      const { rows: comp } = await db.query(
-        'SELECT compartilha_com_id FROM escreventes_compartilhamento WHERE escrevente_id=$1', [eid]
-      );
-      const ids = [eid, ...comp.map(r=>r.compartilha_com_id)];
-      const placeholders = ids.map((_,k)=>`$${i+k}`).join(',');
-      where.push(`(a.captador_id IN(${placeholders}) OR a.executor_id IN(${placeholders}) OR a.signatario_id IN(${placeholders}))`);
-      params.push(...ids);
+    // Filtro de visibilidade para escreventes (captador-only sharing)
+    if (req.user.perfil === 'escrevente') {
+      const scope = buildAtosScope(req.user);
+      if (scope.error) return res.status(403).json({ erro: scope.error });
+      if (scope.where) {
+        // Reindex $1 → $i para compatibilidade com o query builder
+        const scopeCondition = scope.where
+          .replace(/^\s*WHERE\s*/i, '')
+          .replace(/\$1/g, `$${i}`);
+        where.push(scopeCondition);
+        params.push(...scope.params);
+        i += scope.params.length;
+      }
     }
 
     const sql = `

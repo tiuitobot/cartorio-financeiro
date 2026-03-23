@@ -270,9 +270,16 @@ export default function App() {
   const podeVerAto = (ato) => {
     if (['admin', 'financeiro', 'chefe_financeiro'].includes(userRole)) return true;
     if (!userId) return false;
+    // Participação direta: o escrevente está no ato como captador, executor ou signatário
     if ([ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId)) return true;
+
+    // Visibilidade por vínculo:
+    // - Aplica-se apenas ao escrevente diretamente declarado como vinculado
+    // - Apenas para atos em que o escrevente vinculado seja o CAPTADOR
+    // - Não é transitivo: A→B→C não dá acesso de C aos atos de A
+    // - Vínculo não equivale a participação no ato
     const esc = escreventes.find(e => e.id === userId);
-    return (esc?.compartilhar_com || []).some(cid => [ato.captador_id, ato.executor_id, ato.signatario_id].includes(cid));
+    return (esc?.compartilhar_com || []).some(cid => ato.captador_id === cid);
   };
 
   const escreventesById = useMemo(

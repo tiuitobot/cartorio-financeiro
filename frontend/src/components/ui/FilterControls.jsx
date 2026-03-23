@@ -44,7 +44,8 @@ export function ActiveFilterTag({ label, onRemove }) {
   );
 }
 
-export function Sheet({ open, title, subtitle, onClose, children, footer }) {
+// width: largura do painel. Padrão 420px (filtros). Passar '60vw' para painéis de detalhe.
+export function Sheet({ open, title, subtitle, onClose, children, footer, width = '420px' }) {
   if (!open) return null;
 
   return (
@@ -63,7 +64,7 @@ export function Sheet({ open, title, subtitle, onClose, children, footer }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 'min(420px, 100vw)',
+          width: `min(${width}, 100vw)`,
           height: '100%',
           background: 'linear-gradient(180deg,#ffffff,#f8fbff)',
           borderLeft: '1px solid #dbe4f0',

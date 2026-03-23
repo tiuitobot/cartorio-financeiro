@@ -1,6 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { FInput, FSel, Btn, ST, CurrencyInput } from '../ui/index.jsx';
 import { Badge } from '../ui/index.jsx';
+
+// Tipos de ato disponíveis.
+// Valores sem acento — correspondem ao constraint do banco (chk_atos_tipo_ato).
+// Labels com acento — exibidos na interface.
+const TIPOS_ATO = [
+  { value: '',           label: '— Selecione o tipo —' },
+  { value: 'escritura',  label: 'Escritura' },
+  { value: 'ata',        label: 'Ata Notarial' },
+  { value: 'testamento', label: 'Testamento' },
+  { value: 'procuracao', label: 'Procuração' },
+  { value: 'certidao',   label: 'Certidão' },
+  { value: 'apostila',   label: 'Apostila' },
+];
+
+// Tipos que nunca geram comissão (espelha TIPOS_SEM_COMISSAO do backend/lib/finance.js)
+const TIPOS_SEM_COMISSAO = ['certidao', 'testamento'];
 import { padControle, fmtLivro, fmtPagina, fmtRef, fmt, fmtDate } from '../../utils/format.js';
 import { FORMAS_PAGAMENTO, normalizeFormaPagamento } from '../../constants.js';
 import ModalAjusteComissao from './ModalAjusteComissao.jsx';
@@ -143,10 +159,11 @@ function buildInitialForm(ato) {
     controle: '',
     livro: '',
     pagina: '',
+    tipo_ato: '',
+    nome_tomador: '',
     captador_id: null,
     executor_id: null,
     signatario_id: null,
-    nome_tomador: '',
     emolumentos: 0,
     repasses: 0,
     issqn: 0,
@@ -373,6 +390,21 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
                 <FInput label="Nome do Tomador / Cliente" value={form.nome_tomador || ''} onChange={(e) => set('nome_tomador', e.target.value)} disabled={!podeEditar} placeholder="Nome completo" />
               </div>
               {form.livro && form.pagina && <div style={{ background: '#eff6ff', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: '#1e40af', marginTop: 20 }}>Ref: {fmtRef(form.livro, form.pagina)}</div>}
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <FSel
+                label="Tipo de Ato"
+                options={TIPOS_ATO}
+                value={form.tipo_ato || ''}
+                onChange={(e) => set('tipo_ato', e.target.value)}
+                disabled={!podeEditar}
+              />
+              {TIPOS_SEM_COMISSAO.includes(form.tipo_ato) && (
+                <div style={{ marginTop: 6, padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                  <strong>{TIPOS_ATO.find(t => t.value === form.tipo_ato)?.label}</strong>: este tipo de ato não gera comissão para nenhum escrevente,
+                  independentemente de sua taxa contratual ou função.
+                </div>
+              )}
             </div>
           </div>
           )}

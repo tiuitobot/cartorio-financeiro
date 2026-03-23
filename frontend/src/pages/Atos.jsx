@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Btn, FInput, FSel, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
+import { usePagination, Pagination } from '../components/ui/Pagination.jsx';
 import { padControle, fmtRef, fmtDate, fmt, sLabel, sColor } from '../utils/format.js';
 
 const COLUNAS_PADRAO = ['controle', 'referencia', 'data', 'captador', 'emolumentos', 'total', 'pago', 'status'];
@@ -37,6 +38,7 @@ export default function Atos({
   busca, onBusca, userStorageKey,
 }) {
   const storageKey = `colunas_livros_${userStorageKey || 'anon'}`;
+  const paginationKey = `pagination_atos_${userStorageKey || 'anon'}`;
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showColPanel, setShowColPanel] = useState(false);
   const [fCaptador, setFCaptador] = useState('');
@@ -105,6 +107,13 @@ export default function Atos({
       return true;
     });
   }, [atos, fCaptador, fEnvolvido, fStatus, fConfirmacao, fInicio, fFim, fValorMin, fValorMax]);
+
+  const {
+    page, setPage,
+    pageSize, setPageSize,
+    paginatedItems: atosPaginados,
+    totalPages,
+  } = usePagination(atosListados, paginationKey);
 
   const resetFiltros = () => {
     setFCaptador('');
@@ -428,7 +437,7 @@ export default function Atos({
               </tr>
             </thead>
             <tbody>
-              {atosListados.map((a, i) => (
+              {atosPaginados.map((a, i) => (
                 <tr key={a.id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}
                   onMouseOver={ev => ev.currentTarget.style.background = '#f0f7ff'}
                   onMouseOut={ev => ev.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}>
@@ -467,7 +476,15 @@ export default function Atos({
             </tbody>
           </table>
         </StickyXScroll>
-        {atosListados.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Nenhum ato encontrado.</div>}
+        {atosListados.length === 0
+          ? <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Nenhum ato encontrado.</div>
+          : <Pagination
+              page={page} setPage={setPage}
+              pageSize={pageSize} setPageSize={setPageSize}
+              totalPages={totalPages}
+              totalItems={atosListados.length}
+            />
+        }
       </Card>
     </div>
   );
