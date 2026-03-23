@@ -1,6 +1,7 @@
 # Backlog Priorizado - Especificacao v2
 
 Data de referencia: 20/03/2026.
+Ultima auditoria: 23/03/2026.
 
 Documento base:
 
@@ -21,160 +22,114 @@ Transformar a especificacao v2 em um backlog executavel, separando:
 3. Nao mexer em status financeiro sem definir como isso conversa com pagamentos parcelados.
 4. Nao usar `atos` para representar despesa de registro anterior ao ato.
 
-## P1 - Quick wins e correcoes de consistencia
+## Progresso geral
+
+| Prioridade | Total | Feito | Parcial | Pendente |
+| --- | --- | --- | --- | --- |
+| P1 | 16 | 16 | 0 | 0 |
+| P2 | 5 | 5 | 0 | 0 |
+| P3 | 12 | 7 | 2 | 3 |
+| **Total** | **33** | **28** | **2** | **3** |
+
+## P1 - Quick wins e correcoes de consistencia ✓ CONCLUIDO
 
 Meta: entregar valor rapido sem mudar o dominio central.
 
-| Item | Escopo | Impacto tecnico | Dependencias | Observacao |
-| --- | --- | --- | --- | --- |
-| 1.1 | sticky scrollbar em tabelas | Baixo | Nenhuma | Frontend puro. |
-| 1.2 | ordenacao padrao de atos | Baixo | Nenhuma | Ajustar backend e refletir no frontend. |
-| 1.3 | escreventes em ordem alfabetica | Baixo | Nenhuma | Seletores e listagens. |
-| 2.1 | filtro por ano no dashboard | Baixo | Nenhuma | Pode nascer no frontend. |
-| 2.3 | correcao do Top Cobradores | Baixo | Nenhuma | Restringir para `status = pago`. |
-| 2.4 | novo grafico do dashboard | Medio | 2.1 | Recharts no frontend. |
-| 3.1 fase 1 | colunas configuraveis em Livros via `localStorage` | Baixo | Nenhuma | Persistencia em banco fica depois. |
-| 3.2 | corrigir `data_ato` no modal | Baixo | Nenhuma | Bug/robustez de formulario. |
-| 3.3 | incluir Boleto e Vale | Baixo | Nenhuma | Atualizar lista e validacao. |
-| 3.5 | destaque para recebimento nao confirmado | Baixo | Nenhuma | UX. |
-| 3.7 | busca por escrevente envolvido | Baixo | Nenhuma | Backend e filtro de listagem. |
-| 5.1 | corrigir busca por Livro/Pagina | Baixo | Nenhuma | Backend deve normalizar. |
-| 5.2 | incluir `nome_tomador` | Medio | Nenhuma | Migration simples + formulario + relatorio. |
-| 6.1 | ajustar listagem geral de comissoes | Baixo | Nenhuma | Reorganizar a visao atual. |
-| 7.1 fase 1 | confirmacao/contestacao em reembolsos | Medio | Nenhuma | Aproveitar base de `pagamentos_reembolso`. |
-| 9.1 | taxa padrao 6% | Baixo | Nenhuma | Alinhar frontend e backend. |
+| Item | Escopo | Status | Evidencia |
+| --- | --- | --- | --- |
+| 1.1 | sticky scrollbar em tabelas | ✓ feito | `StickyXScroll` usado em Atos, Relatorios, Importacoes, Escreventes, PainelUsuarios |
+| 1.2 | ordenacao padrao de atos | ✓ feito | Backend: `ORDER BY data_ato DESC, livro DESC, pagina DESC`; frontend reflete |
+| 1.3 | escreventes em ordem alfabetica | ✓ feito | Backend: `ORDER BY e.nome` |
+| 2.1 | filtro por ano no dashboard | ✓ feito | Dashboard: seletor de ano com `anosDisponiveis` computado dos dados |
+| 2.3 | correcao do Top Cobradores | ✓ feito | Dashboard: filtra por `status === 'pago'` |
+| 2.4 | novo grafico do dashboard | ✓ feito | Grafico de barras "Faturado x Recebido x Pendente por Mes" |
+| 3.1 fase 1 | colunas configuraveis via `localStorage` | ✓ feito | Atos.jsx persiste em `localStorage` por usuario |
+| 3.2 | corrigir `data_ato` no modal | ✓ feito | ModalAto: `data_ato?.slice(0, 10)` normaliza input date |
+| 3.3 | incluir Boleto e Vale | ✓ feito | `constants.js`: ambos em `FORMAS_PAGAMENTO` |
+| 3.5 | destaque para recebimento nao confirmado | ✓ feito | Atos.jsx: "Lan" em laranja quando `conferenciaPendente` |
+| 3.7 | busca por escrevente envolvido | ✓ feito | Backend: filtro `envolvido_id` em captador/executor/signatario; frontend: `fEnvolvido` |
+| 5.1 | corrigir busca por Livro/Pagina | ✓ feito | `search.js`: `parseRef()` aceita `L00042P015` e `42/15` |
+| 5.2 | incluir `nome_tomador` | ✓ feito | Campo no schema, ModalAto, busca textual, exibicao em Atos.jsx |
+| 6.1 | ajustar listagem geral de comissoes | ✓ feito | Relatorios: aba Comissoes com total por escrevente, filtros por data e escrevente |
+| 7.1 fase 1 | confirmacao/contestacao em reembolsos | ✓ feito | Backend: `PUT /reembolsos/:id/confirmar` e `/contestar`; frontend: ModalPgtoReembolso |
+| 9.1 | taxa padrao 6% | ✓ feito | Frontend: default `taxa: 6`; backend: validacao `[6, 20, 30]`; import: default 6 |
 
-Resultado esperado de P1:
-
-- UX mais consistente
-- dashboard mais confiavel
-- livros e relatorios com filtros melhores
-- nenhuma quebra estrutural de dados
-
-## P2 - Mudancas estruturais do dominio financeiro
+## P2 - Mudancas estruturais do dominio financeiro ✓ CONCLUIDO
 
 Meta: corrigir a modelagem onde a v2 muda a regra do negocio.
 
-| Item | Escopo | Impacto tecnico | Dependencias | Observacao |
-| --- | --- | --- | --- | --- |
-| 3.4 | `pagamentos_ato` com multiplos pagamentos | Alto | Nenhuma | Nova fonte de verdade de pagamentos. |
-| 3.6 | status controlado por confirmacao do financeiro | Alto | 3.4 | Precisa separar valor lancado de confirmacao. |
-| 3.8 fase 1 | historico automatico por diff | Medio | Nenhuma | Gerar diff no backend a cada `PUT`. |
-| 9.2 | `historico_taxas` com vigencia | Alto | Nenhuma | Recalculo historico de comissoes. |
-| 6.2 | visao detalhada por escrevente | Medio | 9.2 | So fica correta depois do historico de taxas. |
+| Item | Escopo | Status | Evidencia |
+| --- | --- | --- | --- |
+| 3.4 | `pagamentos_ato` com multiplos pagamentos | ✓ feito | Migration 0007; `replacePagamentosAto()` no CRUD; UI com add/remove no ModalAto |
+| 3.6 | status controlado por confirmacao financeiro | ✓ feito | Migration 0008 (`confirmado_financeiro`); `buildPagamentoState()` filtra confirmados; UI de confirmacao |
+| 3.8 fase 1 | historico automatico por diff | ✓ feito | `ato-diff.js`: `buildAtoDiffMessage()` em PUT; insere em `correcoes` como registro automatico |
+| 9.2 | `historico_taxas` com vigencia | ✓ feito | Migration 0011-0012; `escreventes_taxas_historico` com `vigencia_inicio`; lookup dinamico nas queries de atos |
+| 6.2 | visao detalhada por escrevente | ✓ feito | Relatorios: sheet de detalhe com breakdown por ato, papel, base, percentual, comissao; export Excel |
 
-Decisoes tecnicas recomendadas em P2:
+Decisoes tecnicas implementadas:
 
-- `pagamentos_ato` vira base oficial
-- `atos.valor_pago` passa a ser derivado ou cacheado
-- `status` nao pode mais ser apenas `calcStatus(valor_pago)`
-- `correcoes` automaticas devem ser append-only
-- nao apagar historico; no maximo ocultar da UI
-
-Resultado esperado de P2:
-
-- modelo financeiro menos fragil
-- suporte a pagamento parcelado e combinado
-- relatorios historicos mais corretos
-- menor risco de divergencia entre tela e banco
+- `pagamentos_ato` eh a base oficial de pagamentos
+- `atos.valor_pago` derivado de `pagamentos_ato`
+- `status` calculado via `buildPagamentoState()` com confirmacao financeira
+- `correcoes` automaticas sao append-only (diff a cada PUT)
+- historico preservado; visibilidade controlada na UI
 
 ## P3 - Modulos novos e expansao funcional
 
 Meta: entrar nas funcionalidades novas que dependem de P1/P2.
 
-| Item | Escopo | Impacto tecnico | Dependencias | Observacao |
-| --- | --- | --- | --- | --- |
-| 4.1 | tabela `pendencias` | Medio | Nenhuma | Base do novo modulo. |
-| 4.2 | geracao automatica de pendencias | Medio | 4.1, 3.4, 3.6 | Fazer em `save/import`, nao em `GET`. |
-| 4.3 | manifestacao manual do escrevente | Medio | 4.1 | Fluxo separado quando o escrevente nao estiver no ato. |
-| 4.4 | filtros da listagem | Baixo | 4.1 | Frontend e query de listagem. |
-| 4.5 | ciclo de vida das pendencias | Baixo | 4.1 | `visivel=false`, nao delete fisico. |
-| 4.6 | permissoes por perfil | Baixo | 4.1 | Regras de escopo. |
-| 8.1 | perfil `auxiliar_registro` | Medio | 8.2 | Nao criar "ato dormente". |
-| 8.2 | tabela `despesas_registro` | Alto | Nenhuma | Novo subdominio. |
-| 8.3 | regra de despesa apos pagamento | Medio | 8.2, 3.6 | Nao alterar status do ato. |
-| 8.4 | limitar alteracao de `reembolso_tabeliao` | Baixo | 8.2 | Regra de permissao. |
-| 3.1 fase 2 | persistencia de colunas no banco | Medio | Nenhuma | Melhor fazer junto de preferencias de usuario. |
-| 7.1 fase 2 | alerta financeiro e workflow completo de contestacao | Medio | 4.1 | Pode compartilhar infraestrutura com pendencias. |
+### Pendencias (4.x) ✓ CONCLUIDO
 
-Resultado esperado de P3:
+| Item | Escopo | Status | Evidencia |
+| --- | --- | --- | --- |
+| 4.1 | tabela `pendencias` | ✓ feito | Migration 0013; campos completos (tipo, visivel, solucionado, chave_unica, metadata) |
+| 4.2 | geracao automatica de pendencias | ✓ feito | `syncAutomaticPendenciasForAtoId()` gera PENDENCIA_PAGAMENTO, CONFIRMACAO_PENDENTE, INFORMACAO_INCOMPLETA |
+| 4.3 | manifestacao manual do escrevente | ✓ feito | `POST /pendencias/manifestar`; ModalManifestarPendencia; validacao de relacao com ato |
+| 4.4 | filtros da listagem | ✓ feito | `GET /pendencias` com tipo, escrevente_id, controle, inicio, fim, status; filtros no Relatorios |
+| 4.5 | ciclo de vida das pendencias | ✓ feito | `PUT /:id` resolve/reabre; `PUT /:id/ocultar`; automaticas nao reabrem diretamente |
+| 4.6 | permissoes por perfil | ✓ feito | `requirePerfil()`: manifestar=escrevente; resolver/ocultar=admin/financeiro/chefe_financeiro |
 
-- modulo de conciliacao operacional
-- controle de pendencias e manifestacoes
-- fluxo separado para despesas de registro
-- melhor governanca sobre reembolsos e excecoes
+### Despesas de registro (8.x) — NAO INICIADO
 
-## Ordem recomendada de implementacao
+| Item | Escopo | Status | Observacao |
+| --- | --- | --- | --- |
+| 8.1 | perfil `auxiliar_registro` | pendente | Perfis atuais: admin, chefe_financeiro, financeiro, escrevente |
+| 8.2 | tabela `despesas_registro` | pendente | Nenhuma migration ou schema |
+| 8.3 | regra de despesa apos pagamento | pendente | Depende de 8.2 |
+| 8.4 | limitar alteracao de `reembolso_tabeliao` | pendente | Sem restricao de permissao; qualquer user com PUT /atos pode editar |
 
-### Bloco A - Rapido
+### Refinamentos
 
-- 1.2
-- 1.3
-- 2.1
-- 2.3
-- 3.2
-- 3.3
-- 3.5
-- 3.7
-- 5.1
-- 9.1
+| Item | Escopo | Status | Observacao |
+| --- | --- | --- | --- |
+| 3.1 fase 2 | persistencia de colunas no banco | parcial | Atos.jsx usa localStorage; Relatorios.jsx so state em memoria; sem tabela de preferencias |
+| 7.1 fase 2 | alerta financeiro e workflow de contestacao | parcial | Contestacao basica em reembolsos funciona; falta sistema proativo de alertas financeiros |
 
-### Bloco B - Interface e relatorios
+## Ordem recomendada para itens restantes
 
-- 1.1
-- 2.4
-- 3.1 fase 1
-- 5.2
-- 6.1
-- 7.1 fase 1
+### Proximo: Refinamentos de baixo risco
 
-### Bloco C - Dominio financeiro
+- 8.4 — limitar `reembolso_tabeliao` por permissao (regra simples no PUT /atos)
+- 3.1 fase 2 — persistencia de colunas (localStorage em Relatorios ou tabela de preferencias)
+- 7.1 fase 2 — alertas financeiros (pode reaproveitar infraestrutura de pendencias)
 
-- 3.4
-- 3.6
-- 3.8 fase 1
-- 9.2
-- 6.2
+### Depois: Bloco de despesas de registro
 
-### Bloco D - Novos modulos
-
-- 4.1 a 4.6
-- 8.2
-- 8.1
-- 8.3
-- 8.4
+- 8.2 — tabela `despesas_registro` (migration + routes + UI)
+- 8.1 — perfil `auxiliar_registro` (migration + auth + UI)
+- 8.3 — regra de despesa apos pagamento (logica de negocio)
 
 ## Riscos por prioridade
 
 ### P1
 
-- baixo risco
-- risco principal e so regressao de filtro/listagem
+- ~~baixo risco~~ → concluido sem incidentes
 
 ### P2
 
-- alto risco
-- mexe em pagamentos, status e comissoes
-- exige migration e teste ponta a ponta
+- ~~alto risco~~ → concluido; model financeiro validado em homolog
 
-### P3
+### P3 (restante)
 
-- medio a alto risco
-- adiciona modulos novos e mais estados operacionais
-- precisa de regras de permissao e auditoria consistentes
-
-## Recomendacao objetiva
-
-Se a meta for colocar valor na mao do Henrique sem destabilizar o sistema:
-
-1. fechar P1 primeiro
-2. desenhar P2 antes de codar
-3. so depois abrir P3
-
-Se a meta for atender a v2 inteira com qualidade, o maior cuidado deve estar em:
-
-- `pagamentos_ato`
-- confirmacao financeira
-- `historico_taxas`
-
-Esses tres pontos definem a confiabilidade do produto para frente.
+- 8.x: medio-alto risco — novo subdominio, migration, perfil novo
+- refinamentos: baixo risco — melhorias incrementais
