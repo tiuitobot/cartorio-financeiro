@@ -18,7 +18,7 @@ router.get('/', authMiddleware, async (req, res) => {
       ${scope.where}
       ORDER BY r.created_at DESC`, scope.params);
     res.json(rows);
-  } catch (e) { res.status(500).json({ erro: 'Erro interno' }); }
+  } catch (e) { console.error(e); res.status(500).json({ erro: 'Erro interno' }); }
 });
 
 router.post('/', authMiddleware, requirePerfil('escrevente'), async (req, res) => {

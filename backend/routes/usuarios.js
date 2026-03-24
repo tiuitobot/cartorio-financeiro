@@ -10,7 +10,7 @@ router.get('/', authMiddleware, requirePerfil('admin'), async (req, res) => {
       'SELECT id,nome,email,perfil,escrevente_id,ativo,created_at FROM usuarios ORDER BY nome'
     );
     res.json(rows);
-  } catch (e) { res.status(500).json({ erro: 'Erro interno' }); }
+  } catch (e) { console.error(e); res.status(500).json({ erro: 'Erro interno' }); }
 });
 
 router.post('/', authMiddleware, requirePerfil('admin'), async (req, res) => {

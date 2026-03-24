@@ -16,8 +16,10 @@ export default function PainelUsuarios({ escreventes }) {
   const [msg, setMsg]           = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const [loadError, setLoadError] = useState('');
+
   useEffect(() => {
-    api.getUsuarios().then(setUsuarios).catch(() => {});
+    api.getUsuarios().then(setUsuarios).catch((e) => setLoadError(e.message || 'Erro ao carregar usuários'));
   }, []);
 
   const salvar = async () => {
@@ -38,6 +40,7 @@ export default function PainelUsuarios({ escreventes }) {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
         <Btn onClick={() => { setForm({ perfil: 'financeiro', ativo: true }); setModal('novo'); }}>＋ Novo Usuário</Btn>
       </div>
+      {loadError && <div style={{ color: '#dc2626', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{loadError}</div>}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <StickyXScroll>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 860 }}>
