@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   senha_hash    VARCHAR(255) NOT NULL,
   perfil        VARCHAR(30) NOT NULL CHECK (perfil IN ('admin','chefe_financeiro','financeiro','escrevente')),
   escrevente_id INTEGER REFERENCES escreventes(id),
+  precisa_trocar_senha BOOLEAN NOT NULL DEFAULT FALSE,
   ativo         BOOLEAN DEFAULT true,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );

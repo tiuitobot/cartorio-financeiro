@@ -43,10 +43,10 @@ export default function PainelUsuarios({ escreventes }) {
       {loadError && <div style={{ color: '#dc2626', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{loadError}</div>}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <StickyXScroll>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 860 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 980 }}>
           <thead>
             <tr style={{ background: '#f1f5f9' }}>
-              {['Nome', 'E-mail', 'Perfil', 'Escrevente vinculado', 'Ativo', ''].map(h => (
+              {['Nome', 'E-mail', 'Perfil', 'Escrevente vinculado', 'Senha', 'Ativo', ''].map(h => (
                 <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, color: '#475569', fontSize: 12, textTransform: 'uppercase' }}>{h}</th>
               ))}
             </tr>
@@ -60,6 +60,9 @@ export default function PainelUsuarios({ escreventes }) {
                   <td style={{ padding: '11px 14px', color: '#64748b' }}>{u.email}</td>
                   <td style={{ padding: '11px 14px' }}><Badge label={u.perfil} color="#1e3a5f" /></td>
                   <td style={{ padding: '11px 14px', color: '#64748b' }}>{esc?.nome || '—'}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <Badge label={u.precisa_trocar_senha ? 'Troca pendente' : 'OK'} color={u.precisa_trocar_senha ? '#f59e0b' : '#22c55e'} />
+                  </td>
                   <td style={{ padding: '11px 14px' }}><Badge label={u.ativo ? 'Ativo' : 'Inativo'} color={u.ativo ? '#22c55e' : '#ef4444'} /></td>
                   <td style={{ padding: '11px 14px' }}>
                     <Btn variant="secondary" onClick={() => { setForm({ ...u, nova_senha: '' }); setModal('editar'); }} style={{ fontSize: 12, padding: '5px 14px' }}>✏️ Editar</Btn>
@@ -84,6 +87,11 @@ export default function PainelUsuarios({ escreventes }) {
               <FInput label="E-mail" type="email" value={form.email || ''} onChange={e => set('email', e.target.value)} />
               {modal === 'novo'   && <FInput label="Senha inicial"                              type="password" value={form.senha     || ''} onChange={e => set('senha',     e.target.value)} />}
               {modal === 'editar' && <FInput label="Nova senha (deixe vazio para não alterar)" type="password" value={form.nova_senha || ''} onChange={e => set('nova_senha', e.target.value)} />}
+              <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.5 }}>
+                {modal === 'novo'
+                  ? 'O usuário será obrigado a trocar a senha no primeiro login.'
+                  : 'Se você definir uma nova senha, o usuário será obrigado a trocá-la no próximo login.'}
+              </div>
               <FSel label="Perfil" value={form.perfil || ''} onChange={e => set('perfil', e.target.value)} options={PERFIS} />
               <FSel label="Escrevente vinculado" value={form.escrevente_id || ''} onChange={e => set('escrevente_id', e.target.value ? parseInt(e.target.value) : null)}
                 options={[{ value: '', label: '— Nenhum —' }, ...escreventes.map(e => ({ value: e.id, label: e.nome }))]} />

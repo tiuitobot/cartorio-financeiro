@@ -291,8 +291,8 @@ async function main() {
     const passwordHash = await bcrypt.hash(DEV_PASSWORD, 12);
     for (const item of usuarios) {
       await client.query(
-        `INSERT INTO usuarios(id,nome,email,senha_hash,perfil,escrevente_id,ativo)
-         VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        `INSERT INTO usuarios(id,nome,email,senha_hash,perfil,escrevente_id,precisa_trocar_senha,ativo)
+         VALUES($1,$2,$3,$4,$5,$6,false,$7)`,
         [item.id, item.nome, item.email.toLowerCase(), passwordHash, item.perfil, item.escrevente_id, item.ativo]
       );
     }

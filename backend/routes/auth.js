@@ -4,6 +4,25 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 
+function buildAuthUser(user) {
+  return {
+    id: user.id,
+    nome: user.nome,
+    email: user.email,
+    perfil: user.perfil,
+    escrevente_id: user.escrevente_id,
+    precisa_trocar_senha: user.precisa_trocar_senha === true,
+  };
+}
+
+function buildAuthToken(user) {
+  return jwt.sign(
+    buildAuthUser(user),
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+  );
+}
+
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body;
@@ -19,12 +38,8 @@ router.post('/login', async (req, res) => {
     const user = rows[0];
     const ok = await bcrypt.compare(senha, user.senha_hash);
     if (!ok) return res.status(401).json({ erro: 'Credenciais inválidas' });
-    const token = jwt.sign(
-      { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, escrevente_id: user.escrevente_id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
-    );
-    res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, escrevente_id: user.escrevente_id } });
+    const token = buildAuthToken(user);
+    res.json({ token, user: buildAuthUser(user) });
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro interno' });
@@ -35,11 +50,13 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, nome, email, perfil, escrevente_id FROM usuarios WHERE id = $1', [req.user.id]
+      'SELECT id, nome, email, perfil, escrevente_id, precisa_trocar_senha FROM usuarios WHERE id = $1',
+      [req.user.id]
     );
     if (!rows.length) return res.status(404).json({ erro: 'Usuário não encontrado' });
-    res.json(rows[0]);
+    res.json(buildAuthUser(rows[0]));
   } catch (e) {
+    console.error(e);
     res.status(500).json({ erro: 'Erro interno' });
   }
 });
@@ -50,14 +67,31 @@ router.put('/senha', authMiddleware, async (req, res) => {
   if (!senha_atual || !nova_senha || nova_senha.length < 6)
     return res.status(400).json({ erro: 'Nova senha deve ter no mínimo 6 caracteres' });
   try {
-    const { rows } = await db.query('SELECT senha_hash FROM usuarios WHERE id = $1', [req.user.id]);
+    const { rows } = await db.query(
+      'SELECT id, nome, email, perfil, escrevente_id, senha_hash, precisa_trocar_senha FROM usuarios WHERE id = $1',
+      [req.user.id]
+    );
     if (!rows.length) return res.status(404).json({ erro: 'Usuário não encontrado' });
-    const ok = await bcrypt.compare(senha_atual, rows[0].senha_hash);
+    const user = rows[0];
+    const ok = await bcrypt.compare(senha_atual, user.senha_hash);
     if (!ok) return res.status(401).json({ erro: 'Senha atual incorreta' });
     const hash = await bcrypt.hash(nova_senha, 12);
-    await db.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [hash, req.user.id]);
-    res.json({ ok: true });
+    const { rows: updatedRows } = await db.query(
+      `UPDATE usuarios
+          SET senha_hash = $1,
+              precisa_trocar_senha = false
+        WHERE id = $2
+        RETURNING id, nome, email, perfil, escrevente_id, precisa_trocar_senha`,
+      [hash, req.user.id]
+    );
+    const updatedUser = updatedRows[0];
+    res.json({
+      ok: true,
+      token: buildAuthToken(updatedUser),
+      user: buildAuthUser(updatedUser),
+    });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ erro: 'Erro interno' });
   }
 });

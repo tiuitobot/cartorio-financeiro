@@ -45,9 +45,9 @@ async function main() {
 
     const senhaHash = await bcrypt.hash(adminPassword, 12);
     const { rows } = await client.query(
-      `INSERT INTO usuarios(nome,email,senha_hash,perfil,escrevente_id,ativo)
-       VALUES($1,$2,$3,'admin',NULL,true)
-       RETURNING id,nome,email,perfil,ativo`,
+      `INSERT INTO usuarios(nome,email,senha_hash,perfil,escrevente_id,precisa_trocar_senha,ativo)
+       VALUES($1,$2,$3,'admin',NULL,true,true)
+       RETURNING id,nome,email,perfil,precisa_trocar_senha,ativo`,
       [adminName, adminEmail, senhaHash]
     );
 

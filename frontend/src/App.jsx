@@ -68,6 +68,7 @@ export default function App() {
 
   const userRole = user?.perfil || 'escrevente';
   const userId   = user?.escrevente_id || null;
+  const precisaTrocarSenha = user?.precisa_trocar_senha === true;
 
   const normalizeComissoes = useCallback((comissoes = []) => (
     Array.isArray(comissoes)
@@ -123,7 +124,10 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem('cartorio_token');
     if (!token) { setLoadingApp(false); return; }
-    api.me().then(u => setUser(u)).catch(() => {
+    api.me().then((u) => {
+      setUser(u);
+      setModalSenha(u.precisa_trocar_senha === true);
+    }).catch(() => {
       localStorage.removeItem('cartorio_token');
     }).finally(() => setLoadingApp(false));
   }, []);
@@ -131,6 +135,11 @@ export default function App() {
   // ── Carregar dados ───────────────────────────────────────────────────────────
   const carregarDados = useCallback(async () => {
     if (!user) return;
+    if (user.precisa_trocar_senha) {
+      setLoadingDados(false);
+      setDadosInicializados(true);
+      return;
+    }
     setLoadingDados(true);
     try {
       const [atosData, escsData, rembs, reivs, pendenciasData] = await Promise.all([
@@ -158,12 +167,21 @@ export default function App() {
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleLogin  = (userData) => {
     setDadosInicializados(false);
+    setErro('');
     setUser(userData);
+    setModalSenha(userData?.precisa_trocar_senha === true);
   };
   const handleLogout = () => {
     localStorage.removeItem('cartorio_token');
     setUser(null); setAtos([]); setEscreventes([]); setPagamentosReembolso([]); setPendencias([]); setReivindicacoes([]);
-    setDadosInicializados(false); setLoadingDados(false);
+    setDadosInicializados(false); setLoadingDados(false); setModalSenha(false); setErro('');
+  };
+  const handleSenhaAlterada = (data) => {
+    if (data?.token) localStorage.setItem('cartorio_token', data.token);
+    if (data?.user) setUser(data.user);
+    setModalSenha(false);
+    setDadosInicializados(false);
+    setErro('');
   };
 
   const handleRefresh = async () => {
@@ -312,6 +330,31 @@ export default function App() {
     </div>
   );
   if (!user) return <TelaLogin onLogin={handleLogin} />;
+  if (precisaTrocarSenha) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#1e3a5f,#152b47)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Segui UI',system-ui,sans-serif" }}>
+      <div style={{ width: '100%', maxWidth: 520, background: '#fff', borderRadius: 20, padding: 32, boxShadow: '0 20px 60px #00000040' }}>
+        <div style={{ color: '#1e3a5f', fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Troca obrigatória de senha</div>
+        <div style={{ color: '#475569', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+          O acesso de <strong>{user.email}</strong> está liberado apenas para a troca da senha inicial. Depois disso, o sistema carrega normalmente.
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={() => setModalSenha(true)} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            Abrir troca de senha
+          </button>
+          <button onClick={handleLogout} style={{ background: '#fff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            Sair
+          </button>
+        </div>
+      </div>
+      {modalSenha && (
+        <ModalTrocarSenha
+          forced
+          onClose={() => setModalSenha(false)}
+          onSuccess={handleSenhaAlterada}
+        />
+      )}
+    </div>
+  );
 
   // ── Render principal ─────────────────────────────────────────────────────────
   return (
@@ -492,7 +535,12 @@ export default function App() {
           onSave={handleRespostaCaptador}
         />
       )}
-      {modalSenha && <ModalTrocarSenha onClose={() => setModalSenha(false)} />}
+      {modalSenha && (
+        <ModalTrocarSenha
+          onClose={() => setModalSenha(false)}
+          onSuccess={handleSenhaAlterada}
+        />
+      )}
     </div>
   );
 }

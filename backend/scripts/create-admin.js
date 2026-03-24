@@ -31,15 +31,16 @@ async function main() {
 
   const senhaHash = await bcrypt.hash(senha, 12);
   const { rows } = await db.query(
-    `INSERT INTO usuarios(nome,email,senha_hash,perfil,escrevente_id,ativo)
-     VALUES($1,$2,$3,$4,$5,true)
+    `INSERT INTO usuarios(nome,email,senha_hash,perfil,escrevente_id,precisa_trocar_senha,ativo)
+     VALUES($1,$2,$3,$4,$5,true,true)
      ON CONFLICT(email) DO UPDATE SET
        nome = EXCLUDED.nome,
        senha_hash = EXCLUDED.senha_hash,
        perfil = EXCLUDED.perfil,
        escrevente_id = EXCLUDED.escrevente_id,
+       precisa_trocar_senha = true,
        ativo = true
-     RETURNING id,nome,email,perfil,ativo`,
+     RETURNING id,nome,email,perfil,precisa_trocar_senha,ativo`,
     [nome, email, senhaHash, perfil, Number.isInteger(escreventeId) ? escreventeId : null]
   );
 
