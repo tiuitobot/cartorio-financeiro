@@ -63,6 +63,9 @@ export function Sheet({ open, title, subtitle, onClose, children, footer, width 
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         style={{
           width: `min(${width}, 100vw)`,
           height: '100%',

@@ -55,7 +55,7 @@ async function fetchEscreventeById(dbClient, id) {
 }
 
 // GET /api/escreventes
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, requirePerfil('admin', 'chefe_financeiro', 'financeiro', 'escrevente'), async (req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT

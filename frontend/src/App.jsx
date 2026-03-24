@@ -1,13 +1,15 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { api } from './api.js';
 import { toMoneyNumber } from './utils/format.js';
 import { normalizeFormaPagamento } from './constants.js';
 import { atoMatchesSearch } from './utils/search.js';
+import { buildOpenReembolsoContestacoes } from './utils/reembolso-alerts.js';
 
 // Pages
 import TelaLogin      from './pages/TelaLogin.jsx';
 import Dashboard      from './pages/Dashboard.jsx';
 import Atos           from './pages/Atos.jsx';
+import DespesasRegistro from './pages/DespesasRegistro.jsx';
 import Importacoes    from './pages/Importacoes.jsx';
 import Relatorios     from './pages/Relatorios.jsx';
 import Escreventes    from './pages/Escreventes.jsx';
@@ -45,6 +47,20 @@ function sortAtos(items = []) {
   });
 }
 
+function sortDespesasRegistro(items = []) {
+  return [...items].sort((a, b) => {
+    const dataA = a?.data_registro || '';
+    const dataB = b?.data_registro || '';
+    if (dataA !== dataB) return dataB.localeCompare(dataA);
+
+    const createdA = a?.created_at || '';
+    const createdB = b?.created_at || '';
+    if (createdA !== createdB) return createdB.localeCompare(createdA);
+
+    return (b?.id || 0) - (a?.id || 0);
+  });
+}
+
 export default function App() {
   const [user, setUser]                           = useState(null);
   const [loadingApp, setLoadingApp]               = useState(true);
@@ -52,9 +68,12 @@ export default function App() {
   const [dadosInicializados, setDadosInicializados] = useState(false);
   const [atos, setAtos]                           = useState([]);
   const [escreventes, setEscreventes]             = useState([]);
+  const [despesasRegistro, setDespesasRegistro]   = useState([]);
   const [pagamentosReembolso, setPagamentosReembolso] = useState([]);
   const [pendencias, setPendencias]               = useState([]);
   const [reivindicacoes, setReivindicacoes]       = useState([]);
+  const [preferenciasUsuario, setPreferenciasUsuario] = useState({});
+  const [relatoriosInitialTab, setRelatoriosInitialTab] = useState(null);
   const [view, setView]                           = useState('dashboard');
   const [modalAto, setModalAto]                   = useState(null);
   const [modalEscrevente, setModalEscrevente]     = useState(null);
@@ -65,10 +84,13 @@ export default function App() {
   const [busca, setBusca]                         = useState('');
   const [erro, setErro]                           = useState('');
   const [importacoesRefreshKey, setImportacoesRefreshKey] = useState(0);
+  const preferenciasRequestSeqRef = useRef(0);
 
   const userRole = user?.perfil || 'escrevente';
   const userId   = user?.escrevente_id || null;
   const precisaTrocarSenha = user?.precisa_trocar_senha === true;
+  const isAuxiliarRegistro = userRole === 'auxiliar_registro';
+  const canAccessRegistro = ['admin', 'financeiro', 'chefe_financeiro', 'auxiliar_registro'].includes(userRole);
 
   const normalizeComissoes = useCallback((comissoes = []) => (
     Array.isArray(comissoes)
@@ -120,12 +142,18 @@ export default function App() {
     valor: toMoneyNumber(pagamento.valor),
   }), []);
 
+  const normalizeDespesaRegistro = useCallback((item) => ({
+    ...item,
+    valor: toMoneyNumber(item.valor),
+  }), []);
+
   // ── Autenticação ao iniciar ──────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('cartorio_token');
     if (!token) { setLoadingApp(false); return; }
     api.me().then((u) => {
       setUser(u);
+      setView(u.perfil === 'auxiliar_registro' ? 'despesas_registro' : 'dashboard');
       setModalSenha(u.precisa_trocar_senha === true);
     }).catch(() => {
       localStorage.removeItem('cartorio_token');
@@ -142,25 +170,30 @@ export default function App() {
     }
     setLoadingDados(true);
     try {
-      const [atosData, escsData, rembs, reivs, pendenciasData] = await Promise.all([
-        api.getAtos(),
-        api.getEscreventes(),
-        api.getReembolsos(),
-        api.getReivindicacoes(),
-        api.getPendencias({ status: 'todas' }),
+      const isAuxiliar = user.perfil === 'auxiliar_registro';
+      const [atosData, escsData, despesasRegistroData, rembs, reivs, pendenciasData, preferenciasData] = await Promise.all([
+        isAuxiliar ? Promise.resolve([]) : api.getAtos(),
+        isAuxiliar ? Promise.resolve([]) : api.getEscreventes(),
+        ['admin', 'financeiro', 'chefe_financeiro', 'auxiliar_registro'].includes(user.perfil) ? api.getDespesasRegistro() : Promise.resolve([]),
+        isAuxiliar ? Promise.resolve([]) : api.getReembolsos(),
+        isAuxiliar ? Promise.resolve([]) : api.getReivindicacoes(),
+        isAuxiliar ? Promise.resolve([]) : api.getPendencias({ status: 'todas' }),
+        api.getPreferenciasUsuario(),
       ]);
       setAtos(sortAtos(atosData.map(normalizeAto)));
       setEscreventes(sortEscreventesByNome(escsData));
+      setDespesasRegistro(sortDespesasRegistro(despesasRegistroData.map(normalizeDespesaRegistro)));
       setPagamentosReembolso(rembs.map(normalizeReembolso));
       setReivindicacoes(reivs);
       setPendencias(pendenciasData);
+      setPreferenciasUsuario(preferenciasData || {});
     } catch (e) {
       setErro('Erro ao carregar dados: ' + e.message);
     } finally {
       setLoadingDados(false);
       setDadosInicializados(true);
     }
-  }, [user, normalizeAto, normalizeReembolso]);
+  }, [user, normalizeAto, normalizeDespesaRegistro, normalizeReembolso]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
@@ -168,12 +201,16 @@ export default function App() {
   const handleLogin  = (userData) => {
     setDadosInicializados(false);
     setErro('');
+    setPreferenciasUsuario({});
     setUser(userData);
+    setView(userData?.perfil === 'auxiliar_registro' ? 'despesas_registro' : 'dashboard');
     setModalSenha(userData?.precisa_trocar_senha === true);
   };
   const handleLogout = () => {
     localStorage.removeItem('cartorio_token');
-    setUser(null); setAtos([]); setEscreventes([]); setPagamentosReembolso([]); setPendencias([]); setReivindicacoes([]);
+    setUser(null); setAtos([]); setEscreventes([]); setDespesasRegistro([]); setPagamentosReembolso([]); setPendencias([]); setReivindicacoes([]);
+    setPreferenciasUsuario({});
+    setView('dashboard');
     setDadosInicializados(false); setLoadingDados(false); setModalSenha(false); setErro('');
   };
   const handleSenhaAlterada = (data) => {
@@ -191,6 +228,25 @@ export default function App() {
     }
     await carregarDados();
   };
+
+  const salvarPreferenciasUsuario = useCallback(async (patch) => {
+    const requestId = ++preferenciasRequestSeqRef.current;
+
+    setPreferenciasUsuario((prev) => ({ ...prev, ...patch }));
+
+    try {
+      const persisted = await api.atualizarPreferenciasUsuario({ preferencias: patch });
+      if (requestId === preferenciasRequestSeqRef.current) {
+        setPreferenciasUsuario(persisted || {});
+      }
+      return persisted;
+    } catch (e) {
+      if (requestId === preferenciasRequestSeqRef.current) {
+        setErro('Erro ao salvar preferências: ' + e.message);
+      }
+      throw e;
+    }
+  }, []);
 
   const persistirAto = async (form, options = {}) => {
     const { closeModal = true } = options;
@@ -304,6 +360,14 @@ export default function App() {
     () => new Map(escreventes.map((item) => [item.id, item])),
     [escreventes]
   );
+  const contestacoesReembolsoAbertas = useMemo(
+    () => buildOpenReembolsoContestacoes({
+      pendencias,
+      pagamentosReembolso,
+      escreventes,
+    }),
+    [pendencias, pagamentosReembolso, escreventes]
+  );
 
   const atosFiltrados = useMemo(() => {
     let l = atos.filter(podeVerAto);
@@ -315,13 +379,28 @@ export default function App() {
 
   const escreventesOrdenados = useMemo(() => sortEscreventesByNome(escreventes), [escreventes]);
 
-  const navItems = [
-    { key: 'dashboard',  label: 'Dashboard',       icon: '📊' },
-    { key: 'atos',       label: 'Livros de Notas',  icon: '📋' },
-    ...(['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) ? [{ key: 'importacoes', label: 'Importações', icon: '📤' }] : []),
-    { key: 'relatorios', label: 'Relatórios',       icon: '📈' },
-    ...(userRole === 'admin' ? [{ key: 'escreventes', label: 'Escreventes', icon: '👥' }, { key: 'usuarios', label: 'Usuários', icon: '🔑' }] : []),
-  ];
+  const showContestacaoBadge = ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && contestacoesReembolsoAbertas.length > 0;
+  const navItems = isAuxiliarRegistro
+    ? [{ key: 'despesas_registro', label: 'Registro', icon: '🧾' }]
+    : [
+        { key: 'dashboard',  label: 'Dashboard', icon: '📊' },
+        { key: 'atos', label: 'Livros de Notas', icon: '📋' },
+        ...(['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) ? [{ key: 'importacoes', label: 'Importações', icon: '📤' }] : []),
+        ...(canAccessRegistro ? [{ key: 'despesas_registro', label: 'Registro', icon: '🧾' }] : []),
+        { key: 'relatorios', label: showContestacaoBadge ? `Relatórios (${contestacoesReembolsoAbertas.length})` : 'Relatórios', icon: '📈' },
+        ...(userRole === 'admin' ? [{ key: 'escreventes', label: 'Escreventes', icon: '👥' }, { key: 'usuarios', label: 'Usuários', icon: '🔑' }] : []),
+      ];
+
+  useEffect(() => {
+    if (view !== 'relatorios') {
+      setRelatoriosInitialTab(null);
+    }
+  }, [view]);
+
+  const abrirRelatoriosNaAba = useCallback((tab) => {
+    setRelatoriosInitialTab(tab);
+    setView('relatorios');
+  }, []);
 
   // ── Render: loading / login ──────────────────────────────────────────────────
   if (loadingApp) return (
@@ -371,7 +450,7 @@ export default function App() {
         </div>
         <nav style={{ flex: 1, padding: '14px 10px' }}>
           {navItems.map(item => (
-            <button key={item.key} onClick={() => setView(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', marginBottom: 3, textAlign: 'left', background: view === item.key ? '#ffffff1a' : 'transparent', color: view === item.key ? '#fff' : '#94a3b8', fontWeight: view === item.key ? 700 : 500, fontSize: 14 }}>
+            <button key={item.key} onClick={() => { if (item.key === 'relatorios') setRelatoriosInitialTab(null); setView(item.key); }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', marginBottom: 3, textAlign: 'left', background: view === item.key ? '#ffffff1a' : 'transparent', color: view === item.key ? '#fff' : '#94a3b8', fontWeight: view === item.key ? 700 : 500, fontSize: 14 }}>
               <span>{item.icon}</span>{item.label}
             </button>
           ))}
@@ -379,7 +458,7 @@ export default function App() {
         <div style={{ padding: '14px 10px', borderTop: '1px solid #ffffff18' }}>
           <div style={{ padding: '10px 14px', borderRadius: 10, background: '#ffffff15', marginBottom: 8 }}>
             <div style={{ color: '#93c5fd', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              {({ admin: '👑 Admin', financeiro: '💼 Financeiro', chefe_financeiro: '🎯 Chefe Financeiro', escrevente: '✍️ Escrevente' })[userRole]}
+              {({ admin: '👑 Admin', financeiro: '💼 Financeiro', chefe_financeiro: '🎯 Chefe Financeiro', escrevente: '✍️ Escrevente', auxiliar_registro: '🧾 Auxiliar de Registro' })[userRole]}
             </div>
             <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nome}</div>
           </div>
@@ -399,7 +478,7 @@ export default function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
             <h1 style={{ margin: 0, color: '#1e293b', fontSize: 22, fontWeight: 800 }}>
-              {{ dashboard: 'Dashboard', atos: 'Livros de Notas', importacoes: 'Importações', relatorios: 'Relatórios', escreventes: 'Escreventes', usuarios: 'Usuários' }[view]}
+              {{ dashboard: 'Dashboard', atos: 'Livros de Notas', importacoes: 'Importações', despesas_registro: 'Despesas de Registro', relatorios: 'Relatórios', escreventes: 'Escreventes', usuarios: 'Usuários' }[view]}
             </h1>
             <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 2 }}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
@@ -426,7 +505,14 @@ export default function App() {
           </div>
         ) : (
           <>
-            {view === 'dashboard'  && <Dashboard atos={atos} escreventes={escreventesOrdenados} />}
+            {view === 'dashboard'  && (
+              <Dashboard
+                atos={atos}
+                escreventes={escreventesOrdenados}
+                contestacoesReembolsoAbertas={['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) ? contestacoesReembolsoAbertas : []}
+                onOpenContestacoesReembolso={() => abrirRelatoriosNaAba('reembolsos')}
+              />
+            )}
 
             {view === 'atos' && (
               <Atos
@@ -436,6 +522,8 @@ export default function App() {
                 userRole={userRole}
                 userId={userId}
                 userStorageKey={user?.id || userRole}
+                preferredColumns={preferenciasUsuario.livros_notas_colunas}
+                onSavePreferredColumns={(colunas) => salvarPreferenciasUsuario({ livros_notas_colunas: colunas })}
                 onOpenAto={a => setModalAto(a)}
                 onDeclaro={() => setModalDeclaro(true)}
                 onRespostaCaptador={r => setModalRespostaCaptador(r)}
@@ -454,6 +542,42 @@ export default function App() {
               />
             )}
 
+            {view === 'despesas_registro' && canAccessRegistro && (
+              <DespesasRegistro
+                despesas={despesasRegistro}
+                atos={atos}
+                onCreate={async (payload) => {
+                  try {
+                    const nova = normalizeDespesaRegistro(await api.criarDespesaRegistro(payload));
+                    setDespesasRegistro((prev) => sortDespesasRegistro([nova, ...prev]));
+                    return nova;
+                  } catch (e) {
+                    setErro(e.message);
+                    throw e;
+                  }
+                }}
+                onUpdate={async (id, payload) => {
+                  try {
+                    const atualizada = normalizeDespesaRegistro(await api.atualizarDespesaRegistro(id, payload));
+                    setDespesasRegistro((prev) => sortDespesasRegistro(prev.map((item) => (item.id === atualizada.id ? atualizada : item))));
+                    return atualizada;
+                  } catch (e) {
+                    setErro(e.message);
+                    throw e;
+                  }
+                }}
+                onDelete={async (id) => {
+                  try {
+                    await api.deletarDespesaRegistro(id);
+                    setDespesasRegistro((prev) => prev.filter((item) => item.id !== id));
+                  } catch (e) {
+                    setErro(e.message);
+                    throw e;
+                  }
+                }}
+              />
+            )}
+
             {view === 'relatorios' && (
               <Relatorios
                 atos={atos}
@@ -462,12 +586,31 @@ export default function App() {
                 pagamentosReembolso={pagamentosReembolso}
                 userRole={userRole}
                 userId={userId}
+                initialTab={relatoriosInitialTab}
+                contestacoesReembolsoAbertas={contestacoesReembolsoAbertas}
+                userStorageKey={user?.id || userRole}
+                preferredAtosColumns={preferenciasUsuario.relatorios_atos_colunas}
+                onSavePreferredAtosColumns={(colunas) => salvarPreferenciasUsuario({ relatorios_atos_colunas: colunas })}
                 onOpenAto={(ato) => setModalAto(ato)}
                 onAtualizarPendencia={async (id, payload) => { try { return await handleAtualizarPendencia(id, payload); } catch (e) { setErro(e.message); throw e; } }}
                 onOcultarPendencia={async (id) => { try { await handleOcultarPendencia(id); } catch (e) { setErro(e.message); throw e; } }}
                 onAddPagamento={async p => { try { const novo = normalizeReembolso(await api.criarReembolso(p)); setPagamentosReembolso(prev => [...prev, novo]); } catch (e) { setErro(e.message); } }}
-                onConfirmarReembolso={async id => { try { const atualizado = normalizeReembolso(await api.confirmarReembolso(id)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
-                onContestarReembolso={async (id, justificativa) => { try { const atualizado = normalizeReembolso(await api.contestarReembolso(id, justificativa)); setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p)); } catch (e) { setErro(e.message); } }}
+                onConfirmarReembolso={async id => {
+                  try {
+                    const atualizado = normalizeReembolso(await api.confirmarReembolso(id));
+                    setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p));
+                    const pendenciasAtualizadas = await api.getPendencias({ status: 'todas' });
+                    setPendencias(pendenciasAtualizadas);
+                  } catch (e) { setErro(e.message); }
+                }}
+                onContestarReembolso={async (id, justificativa) => {
+                  try {
+                    const atualizado = normalizeReembolso(await api.contestarReembolso(id, justificativa));
+                    setPagamentosReembolso(prev => prev.map(p => p.id === atualizado.id ? atualizado : p));
+                    const pendenciasAtualizadas = await api.getPendencias({ status: 'todas' });
+                    setPendencias(pendenciasAtualizadas);
+                  } catch (e) { setErro(e.message); }
+                }}
               />
             )}
 

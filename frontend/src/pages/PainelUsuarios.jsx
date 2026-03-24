@@ -7,6 +7,7 @@ const PERFIS = [
   { value: 'chefe_financeiro', label: 'Chefe Financeiro' },
   { value: 'financeiro',       label: 'Financeiro' },
   { value: 'escrevente',       label: 'Escrevente' },
+  { value: 'auxiliar_registro', label: 'Auxiliar de Registro' },
 ];
 
 export default function PainelUsuarios({ escreventes }) {

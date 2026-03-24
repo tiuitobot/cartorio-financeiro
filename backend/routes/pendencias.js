@@ -37,7 +37,7 @@ async function fetchPendenciaRowById(queryable, pendenciaId) {
   return rows[0] || null;
 }
 
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, requirePerfil('admin', 'financeiro', 'chefe_financeiro', 'escrevente'), async (req, res) => {
   const {
     tipo,
     escrevente_id,

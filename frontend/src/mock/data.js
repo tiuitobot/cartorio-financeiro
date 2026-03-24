@@ -127,6 +127,29 @@ export const MOCK_REEMBOLSOS = [
   { id: 2, escrevente_id: 1, valor: 45.00, descricao: 'Reembolso ato 38 — cartório de imóveis', data: '2026-02-22', confirmado: true,  confirmado_em: '2026-02-23' },
 ];
 
+export const MOCK_DESPESAS_REGISTRO = [
+  {
+    id: 1,
+    controle_ref: '00044',
+    data_registro: '2026-03-07',
+    valor: 80.00,
+    descricao: 'Prenotação de registro',
+    cartorio_nome: '2º Registro de Imóveis',
+    protocolo: 'REG-44',
+    observacoes: 'Despesa anterior ao ato',
+  },
+  {
+    id: 2,
+    controle_ref: '00042',
+    data_registro: '2026-03-13',
+    valor: 95.00,
+    descricao: 'Complemento de prenotação pós-pagamento',
+    cartorio_nome: '2º Registro de Imóveis',
+    protocolo: 'REG-42B',
+    observacoes: 'Não deve reabrir o status do ato pago',
+  },
+];
+
 export const MOCK_REIVINDICACOES = [
   { id: 1, ato_id: 2, escrevente_id: 3, escrevente_nome: 'Pedro Oliveira', funcao: 'executor', status: 'pendente',   justificativa: '',           decisao_financeiro: '', data: '2026-03-12' },
   { id: 2, ato_id: 7, escrevente_id: 4, escrevente_nome: 'Ana Costa',      funcao: 'signatario', status: 'recusada', justificativa: 'Não participei deste ato.', decisao_financeiro: '', data: '2026-02-15' },

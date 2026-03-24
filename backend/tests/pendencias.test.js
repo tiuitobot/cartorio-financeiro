@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 
 const {
   buildAutomaticPendenciasForAto,
+  createReembolsoContestacaoPendencia,
+  resolveReembolsoContestacaoPendencia,
   serializePendencia,
 } = require('../lib/pendencias');
 
@@ -92,4 +94,69 @@ test('serializePendencia restringe referência do ato para manifestação fora d
   assert.equal(serialized.referencia, null);
   assert.equal(serialized.pode_abrir_ato, false);
   assert.equal(serialized.controle, '00999');
+});
+
+test('createReembolsoContestacaoPendencia abre pendência com chave única do reembolso', async () => {
+  const calls = [];
+  const client = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+
+      if (sql.includes('SELECT id')) {
+        return { rows: [] };
+      }
+
+      if (sql.includes('INSERT INTO pendencias')) {
+        return {
+          rows: [
+            {
+              id: 77,
+              chave_unica: params[9],
+              descricao: params[3],
+              metadata: JSON.parse(params[10]),
+            },
+          ],
+        };
+      }
+
+      throw new Error(`query inesperada: ${sql}`);
+    },
+  };
+
+  const pendencia = await createReembolsoContestacaoPendencia(client, {
+    pagamento: {
+      id: 55,
+      escrevente_id: 2,
+    },
+    user: {
+      id: 9,
+      escrevente_id: 2,
+    },
+    justificativa: 'Valor não caiu na conta',
+  });
+
+  assert.equal(pendencia.chave_unica, 'reembolso:55:contestacao');
+  assert.equal(pendencia.descricao, 'Contestação de reembolso: Valor não caiu na conta');
+  assert.equal(pendencia.metadata.reembolso_id, 55);
+  assert.equal(pendencia.metadata.contestacao_justificativa, 'Valor não caiu na conta');
+});
+
+test('resolveReembolsoContestacaoPendencia resolve pendência pela chave única do reembolso', async () => {
+  const calls = [];
+  const client = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+      return { rows: [] };
+    },
+  };
+
+  await resolveReembolsoContestacaoPendencia(client, 55, 12);
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].sql, /UPDATE pendencias/i);
+  assert.deepEqual(calls[0].params, [
+    'reembolso:55:contestacao',
+    12,
+    'Contestação de reembolso encerrada',
+  ]);
 });

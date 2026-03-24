@@ -230,6 +230,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
   })();
 
   const podeEditar = userRole === 'admin' || userRole === 'financeiro' || userRole === 'chefe_financeiro';
+  const podeEditarReembolsoTabeliao = userRole === 'admin' || userRole === 'financeiro' || userRole === 'chefe_financeiro';
   const podeVerCom = podeEditar || (ato && [ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId));
   const hasPersistedAto = Boolean(form.id && typeof form.id === 'number' && form.id < 1e12);
   const conferenceMode = ato?._openSection === 'financeiro';
@@ -432,7 +433,7 @@ export default function ModalAto({ ato, onClose, onSave, onSaveStayOpen, escreve
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Total do Ato</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: '#1e3a5f' }}>{fmt(total)}</div>
               </div>
-              <CurrencyInput label="Reembolso Tabelião" value={form.reembolso_tabeliao} onChange={(v) => set('reembolso_tabeliao', v)} disabled={!podeEditar} />
+              <CurrencyInput label="Reembolso Tabelião" value={form.reembolso_tabeliao} onChange={(v) => set('reembolso_tabeliao', v)} disabled={!podeEditarReembolsoTabeliao} />
               <div>
                 <CurrencyInput label="Reembolso Escrevente" value={form.reembolso_escrevente} onChange={(v) => set('reembolso_escrevente', v)} disabled={!podeEditar} />
                 {form.reembolso_escrevente > 0 && (

@@ -45,6 +45,9 @@ router.post('/', authMiddleware, requirePerfil('escrevente'), async (req, res) =
 router.put('/:id', authMiddleware, async (req, res) => {
   const id = parseInt(req.params.id);
   const { status, justificativa, decisao_financeiro } = req.body;
+  if (!['admin', 'financeiro', 'chefe_financeiro', 'escrevente'].includes(req.user.perfil)) {
+    return res.status(403).json({ erro: 'Permissão insuficiente' });
+  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');

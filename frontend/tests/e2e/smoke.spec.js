@@ -83,18 +83,18 @@ test.describe('smoke e2e', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
     const linhasAtos = page.locator('table tbody tr');
     await expect(linhasAtos.first()).toBeVisible();
-    expect(await linhasAtos.count()).toBeGreaterThanOrEqual(5);
+    expect(await linhasAtos.count()).toBeGreaterThanOrEqual(4);
     await expect(page.getByRole('button', { name: /Declaro Participação/ })).toBeVisible();
-    await expect(page.getByText('00044')).toBeVisible();
+    await expect(page.getByText('00047')).toBeVisible();
 
     await page.getByRole('button', { name: /Declaro Participação/ }).click();
     await expect(page.getByText('Reivindicação de Participação')).toBeVisible();
 
-    await page.locator('input[placeholder="ex: 00042 ou L42P15"]').fill('00044');
+    await page.locator('input[placeholder="ex: 00042 ou L42P15"]').fill('00043');
     await page.getByRole('button', { name: /Buscar/ }).click();
 
     await expect(page.getByText('Ato encontrado')).toBeVisible();
-    await expect(page.locator('strong').filter({ hasText: '00044' }).first()).toBeVisible();
+    await expect(page.locator('strong').filter({ hasText: '00043' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Enviar Declaração/ })).toBeVisible();
   });
 });

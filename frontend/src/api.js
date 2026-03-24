@@ -74,6 +74,12 @@ const apiReal = {
   confirmarReembolso:    (id)   => req('PUT',  `/reembolsos/${id}/confirmar`, {}),
   contestarReembolso:    (id, justificativa) => req('PUT', `/reembolsos/${id}/contestar`, { justificativa }),
 
+  // Despesas de registro
+  getDespesasRegistro:   ()     => req('GET',  '/despesas-registro'),
+  criarDespesaRegistro:  (data) => req('POST', '/despesas-registro', data),
+  atualizarDespesaRegistro: (id, data) => req('PUT', `/despesas-registro/${id}`, data),
+  deletarDespesaRegistro: (id)  => req('DELETE', `/despesas-registro/${id}`),
+
   // Reivindicações
   getReivindicacoes:    ()              => req('GET',  '/reivindicacoes'),
   criarReivindicacao:   (data)         => req('POST', '/reivindicacoes', data),
@@ -101,6 +107,8 @@ const apiReal = {
   getUsuarios:   ()             => req('GET',  '/usuarios'),
   criarUsuario:  (data)         => req('POST', '/usuarios', data),
   atualizarUsuario:(id,data)    => req('PUT',  `/usuarios/${id}`, data),
+  getPreferenciasUsuario: ()    => req('GET', '/usuarios/preferencias'),
+  atualizarPreferenciasUsuario: (data) => req('PUT', '/usuarios/preferencias', data),
 };
 
 export const api = import.meta.env.VITE_USE_MOCK === 'true' ? apiMock : apiReal;

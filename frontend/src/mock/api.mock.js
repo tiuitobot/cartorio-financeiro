@@ -3,14 +3,56 @@
 // NÃO incluir em produção.
 
 import {
-  MOCK_ESCREVENTES, MOCK_ATOS,
+  MOCK_ESCREVENTES, MOCK_ATOS, MOCK_DESPESAS_REGISTRO,
   MOCK_REEMBOLSOS, MOCK_REIVINDICACOES, MOCK_USUARIOS,
 } from './data.js';
 
 const delay = (ms = 180) => new Promise(r => setTimeout(r, ms));
 
 const ADMIN_FIN = ['admin', 'financeiro', 'chefe_financeiro'];
+const REGISTRO_ROLES = [...ADMIN_FIN, 'auxiliar_registro'];
 const TIMEZONE = 'America/Sao_Paulo';
+const USER_PREFERENCE_DEFINITIONS = {
+  livros_notas_colunas: [
+    'controle',
+    'referencia',
+    'data',
+    'tipo_ato',
+    'captador',
+    'executor',
+    'signatario',
+    'tomador',
+    'emolumentos',
+    'total',
+    'pago',
+    'status',
+  ],
+  relatorios_atos_colunas: [
+    'data_ato',
+    'controle',
+    'livro',
+    'pagina',
+    'captador',
+    'nome_tomador',
+    'cap_pct',
+    'executor',
+    'exe_pct',
+    'signatario',
+    'sig_val',
+    'total_recibo',
+    'emolumentos',
+    'repasses',
+    'issqn',
+    'total_com',
+    'remb_tab',
+    'remb_esc',
+    'data_pgto',
+    'valor_pago',
+    'forma_pgto',
+    'saldo',
+    'status',
+  ],
+};
 
 const toNumber = (value) => {
   const parsed = Number.parseFloat(value || 0);
@@ -22,9 +64,73 @@ const normalizeNullableString = (value) => {
   return normalized || null;
 };
 
+const normalizeControleRef = (value) => String(value || '').replace(/\D/g, '').padStart(5, '0');
+
+function enrichDespesaRegistro(item) {
+  const controleRef = normalizeControleRef(item.controle_ref);
+  const ato = _atos.find((atoItem) => normalizeControleRef(atoItem.controle) === controleRef) || null;
+  const atoDataPagamento = ato?.data_pagamento || null;
+  const despesaAposPagamento = Boolean(
+    ato
+    && atoDataPagamento
+    && item.data_registro
+    && item.data_registro >= atoDataPagamento
+  );
+
+  let impactoFinanceiro = 'sem_ato_vinculado';
+  if (ato && !atoDataPagamento) impactoFinanceiro = 'ato_sem_pagamento';
+  else if (despesaAposPagamento) impactoFinanceiro = 'apos_pagamento_sem_recalculo';
+  else if (ato) impactoFinanceiro = 'antes_do_pagamento';
+
+  return {
+    ...item,
+    ato_vinculado_id: ato?.id || null,
+    ato_vinculado_livro: ato?.livro || null,
+    ato_vinculado_pagina: ato?.pagina || null,
+    ato_vinculado_status: ato?.status || null,
+    ato_vinculado_data_pagamento: atoDataPagamento,
+    despesa_apos_pagamento: despesaAposPagamento,
+    preserva_status_ato: despesaAposPagamento && ['pago', 'pago_menor', 'pago_maior'].includes(String(ato?.status || '')),
+    impacto_financeiro: impactoFinanceiro,
+  };
+}
+
 const formatDatePtBr = (date = new Date()) => new Intl.DateTimeFormat('pt-BR', {
   timeZone: TIMEZONE,
 }).format(date);
+
+function normalizePreferenceSelection(value, allowedKeys) {
+  if (!Array.isArray(value)) return null;
+
+  const allowedSet = new Set(allowedKeys);
+  const seen = new Set();
+  const normalized = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const key = item.trim();
+    if (!allowedSet.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(key);
+  }
+
+  return normalized;
+}
+
+function sanitizeUserPreferences(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+
+  const sanitized = {};
+  for (const [key, allowedKeys] of Object.entries(USER_PREFERENCE_DEFINITIONS)) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
+    const normalized = normalizePreferenceSelection(input[key], allowedKeys);
+    if (normalized !== null) {
+      sanitized[key] = normalized;
+    }
+  }
+
+  return sanitized;
+}
 
 const calcStatus = (emolumentos, repasses, issqn, rembTab, rembEsc, valorPago) => {
   const total = toNumber(emolumentos)
@@ -380,10 +486,12 @@ function normalizeReembolso(reembolso) {
 
 // Estado mutável in-memory (persiste durante a sessão, reseta ao recarregar)
 let _atos          = MOCK_ATOS.map(stripDerivedAto);
+let _despesasRegistro = MOCK_DESPESAS_REGISTRO.map((item) => ({ ...item }));
 let _escreventes   = MOCK_ESCREVENTES.map(e => ({ ...e }));
 let _reembolsos    = MOCK_REEMBOLSOS.map(normalizeReembolso);
 let _reivindicacoes = MOCK_REIVINDICACOES.map(r => ({ ...r }));
 let _usuarios      = MOCK_USUARIOS.map(u => ({ ...u }));
+let _preferenciasUsuarios = new Map();
 let _nextId        = 100;
 const nextId       = () => ++_nextId;
 
@@ -422,6 +530,29 @@ export const apiMock = {
     };
   },
 
+  getPreferenciasUsuario: async () => {
+    await delay(80);
+    const user = requireUser();
+    return {
+      ...sanitizeUserPreferences(_preferenciasUsuarios.get(user.id) || {}),
+    };
+  },
+
+  atualizarPreferenciasUsuario: async (data = {}) => {
+    await delay(80);
+    const user = requireUser();
+    const payload = data?.preferencias && typeof data.preferencias === 'object'
+      ? data.preferencias
+      : data;
+    const atuais = sanitizeUserPreferences(_preferenciasUsuarios.get(user.id) || {});
+    const proximas = {
+      ...atuais,
+      ...sanitizeUserPreferences(payload),
+    };
+    _preferenciasUsuarios.set(user.id, proximas);
+    return { ...proximas };
+  },
+
   trocarSenha: async (atual, nova) => {
     await delay();
     requireUser();
@@ -432,7 +563,7 @@ export const apiMock = {
   // ── Escreventes ───────────────────────────────────────────────────────────
   getEscreventes: async () => {
     await delay();
-    requireUser();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro', 'escrevente');
     return _escreventes.filter(e => e.ativo);
   },
 
@@ -487,6 +618,7 @@ export const apiMock = {
     await delay();
     const u = requireUser();
     if (!u) throw new Error('Não autenticado');
+    if (u.perfil === 'auxiliar_registro') throw new Error('Permissão insuficiente');
     if (u.perfil === 'escrevente' && u.escrevente_id) {
       const esc = _escreventes.find(e => e.id === u.escrevente_id);
       const ids = [u.escrevente_id, ...(esc?.compartilhar_com || [])];
@@ -525,6 +657,7 @@ export const apiMock = {
   getReembolsos: async () => {
     await delay();
     const user = requireUser();
+    if (user.perfil === 'auxiliar_registro') throw new Error('Permissão insuficiente');
     if (user.perfil === 'escrevente') {
       if (!user.escrevente_id) throw new Error('Usuário não vinculado a escrevente');
       return _reembolsos.filter((item) => item.escrevente_id === user.escrevente_id).map((item) => ({ ...item }));
@@ -585,10 +718,75 @@ export const apiMock = {
     return { ..._reembolsos[idx] };
   },
 
+  // ── Despesas de Registro ──────────────────────────────────────────────────
+  getDespesasRegistro: async () => {
+    await delay();
+    requirePerfil(requireUser(), ...REGISTRO_ROLES);
+    return _despesasRegistro.map((item) => enrichDespesaRegistro(item));
+  },
+
+  criarDespesaRegistro: async (data) => {
+    await delay();
+    requirePerfil(requireUser(), ...REGISTRO_ROLES);
+    if (!String(data?.controle_ref || '').trim()) throw new Error('Controle obrigatório');
+    if (!String(data?.data_registro || '').trim()) throw new Error('Data do registro obrigatória');
+    if (!toNumber(data?.valor)) throw new Error('Valor deve ser maior que zero');
+    if (!String(data?.descricao || '').trim()) throw new Error('Descrição obrigatória');
+
+    const novo = {
+      id: nextId(),
+      controle_ref: normalizeControleRef(data.controle_ref),
+      data_registro: data.data_registro,
+      valor: toNumber(data.valor),
+      descricao: String(data.descricao).trim(),
+      cartorio_nome: normalizeNullableString(data.cartorio_nome),
+      protocolo: normalizeNullableString(data.protocolo),
+      observacoes: normalizeNullableString(data.observacoes),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    _despesasRegistro.push(novo);
+    return enrichDespesaRegistro(novo);
+  },
+
+  atualizarDespesaRegistro: async (id, data) => {
+    await delay();
+    requirePerfil(requireUser(), ...REGISTRO_ROLES);
+    const idx = _despesasRegistro.findIndex((item) => item.id === id);
+    if (idx === -1) throw new Error('Despesa de registro não encontrada');
+    if (!String(data?.controle_ref || '').trim()) throw new Error('Controle obrigatório');
+    if (!String(data?.data_registro || '').trim()) throw new Error('Data do registro obrigatória');
+    if (!toNumber(data?.valor)) throw new Error('Valor deve ser maior que zero');
+    if (!String(data?.descricao || '').trim()) throw new Error('Descrição obrigatória');
+
+    _despesasRegistro[idx] = {
+      ..._despesasRegistro[idx],
+      controle_ref: normalizeControleRef(data.controle_ref),
+      data_registro: data.data_registro,
+      valor: toNumber(data.valor),
+      descricao: String(data.descricao).trim(),
+      cartorio_nome: normalizeNullableString(data.cartorio_nome),
+      protocolo: normalizeNullableString(data.protocolo),
+      observacoes: normalizeNullableString(data.observacoes),
+      updated_at: new Date().toISOString(),
+    };
+    return enrichDespesaRegistro(_despesasRegistro[idx]);
+  },
+
+  deletarDespesaRegistro: async (id) => {
+    await delay();
+    requirePerfil(requireUser(), ...REGISTRO_ROLES);
+    const idx = _despesasRegistro.findIndex((item) => item.id === id);
+    if (idx === -1) throw new Error('Despesa de registro não encontrada');
+    _despesasRegistro.splice(idx, 1);
+    return null;
+  },
+
   // ── Reivindicações ────────────────────────────────────────────────────────
   getReivindicacoes: async () => {
     await delay();
     const user = requireUser();
+    if (user.perfil === 'auxiliar_registro') throw new Error('Permissão insuficiente');
     if (user.perfil === 'escrevente') {
       if (!user.escrevente_id) throw new Error('Usuário não vinculado a escrevente');
       return _reivindicacoes
@@ -673,7 +871,7 @@ export const apiMock = {
   // ── Pendências ────────────────────────────────────────────────────────────
   getPendencias: async () => {
     await delay();
-    requireUser();
+    requirePerfil(requireUser(), 'admin', 'financeiro', 'chefe_financeiro', 'escrevente');
     return [];
   },
 

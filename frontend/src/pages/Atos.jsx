@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Btn, FInput, FSel, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
 import { usePagination, Pagination } from '../components/ui/Pagination.jsx';
 import { padControle, fmtRef, fmtDate, fmt, sLabel, sColor } from '../utils/format.js';
+import { areStringArraysEqual, normalizeColumnSelection, readColumnSelectionFromStorage } from '../utils/column-preferences.js';
 
 const COLUNAS_PADRAO = ['controle', 'referencia', 'data', 'captador', 'emolumentos', 'total', 'pago', 'status'];
 const TODAS_COLUNAS = [
@@ -35,10 +36,19 @@ const CONFERENCIA_OPTIONS = [
 export default function Atos({
   atos, escreventes, reivindicacoes, userRole, userId,
   onOpenAto, onDeclaro, onRespostaCaptador, onContestar, onDecisaoFinanceiro,
-  busca, onBusca, userStorageKey,
+  busca, onBusca, userStorageKey, preferredColumns, onSavePreferredColumns,
 }) {
   const storageKey = `colunas_livros_${userStorageKey || 'anon'}`;
   const paginationKey = `pagination_atos_${userStorageKey || 'anon'}`;
+  const allowedColumnKeys = useMemo(
+    () => TODAS_COLUNAS.map((coluna) => coluna.key),
+    []
+  );
+  const preferredColumnsKey = Array.isArray(preferredColumns) ? preferredColumns.join('|') : '__none__';
+  const normalizedPreferredColumns = useMemo(
+    () => normalizeColumnSelection(preferredColumns, allowedColumnKeys),
+    [preferredColumnsKey, allowedColumnKeys]
+  );
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showColPanel, setShowColPanel] = useState(false);
   const [fCaptador, setFCaptador] = useState('');
@@ -49,18 +59,42 @@ export default function Atos({
   const [fFim, setFFim] = useState('');
   const [fValorMin, setFValorMin] = useState('');
   const [fValorMax, setFValorMax] = useState('');
-  const [selectedCols, setSelectedCols] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(storageKey) || 'null');
-      return Array.isArray(stored) && stored.length ? stored : COLUNAS_PADRAO;
-    } catch {
-      return COLUNAS_PADRAO;
-    }
-  });
+  const [selectedCols, setSelectedCols] = useState(() => (
+    normalizedPreferredColumns
+    ?? readColumnSelectionFromStorage(storageKey, allowedColumnKeys)
+    ?? COLUNAS_PADRAO
+  ));
+  const lastPersistedColsRef = useRef(normalizedPreferredColumns);
+
+  useEffect(() => {
+    if (normalizedPreferredColumns === null) return;
+    lastPersistedColsRef.current = normalizedPreferredColumns;
+    setSelectedCols((prev) => (
+      areStringArraysEqual(prev, normalizedPreferredColumns) ? prev : normalizedPreferredColumns
+    ));
+  }, [normalizedPreferredColumns]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(selectedCols));
   }, [selectedCols, storageKey]);
+
+  useEffect(() => {
+    if (!onSavePreferredColumns) return undefined;
+    if (lastPersistedColsRef.current && areStringArraysEqual(selectedCols, lastPersistedColsRef.current)) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      const nextSelection = [...selectedCols];
+      onSavePreferredColumns(nextSelection)
+        .then(() => {
+          lastPersistedColsRef.current = nextSelection;
+        })
+        .catch(() => {});
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedCols, onSavePreferredColumns]);
 
   const toggleCol = (key) => {
     setSelectedCols((prev) => (

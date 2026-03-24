@@ -1,3 +1,7 @@
+function hasFullBackofficeAccess(user) {
+  return ['admin', 'financeiro', 'chefe_financeiro'].includes(user?.perfil);
+}
+
 function missingEscreventeBinding(user) {
   return user?.perfil === 'escrevente' && !user?.escrevente_id;
 }
@@ -14,7 +18,11 @@ function buildReembolsosScope(user) {
     };
   }
 
-  return { where: '', params: [] };
+  if (hasFullBackofficeAccess(user)) {
+    return { where: '', params: [] };
+  }
+
+  return { error: 'Permissão insuficiente' };
 }
 
 // Reivindicações: escrevente vê as que ele criou (r.escrevente_id)
@@ -32,7 +40,11 @@ function buildReivindicacoesScope(user) {
     };
   }
 
-  return { where: '', params: [] };
+  if (hasFullBackofficeAccess(user)) {
+    return { where: '', params: [] };
+  }
+
+  return { error: 'Permissão insuficiente' };
 }
 
 // buildAtosScope: visibilidade de atos para escrevente.
@@ -62,7 +74,12 @@ function buildAtosScope(user) {
       params: [user.escrevente_id],
     };
   }
-  return { where: '', params: [] };
+
+  if (hasFullBackofficeAccess(user)) {
+    return { where: '', params: [] };
+  }
+
+  return { error: 'Permissão insuficiente' };
 }
 
 module.exports = {

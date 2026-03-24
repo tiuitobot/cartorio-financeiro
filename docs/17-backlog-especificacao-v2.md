@@ -28,8 +28,8 @@ Transformar a especificacao v2 em um backlog executavel, separando:
 | --- | --- | --- | --- | --- |
 | P1 | 16 | 16 | 0 | 0 |
 | P2 | 5 | 5 | 0 | 0 |
-| P3 | 12 | 7 | 2 | 3 |
-| **Total** | **33** | **28** | **2** | **3** |
+| P3 | 12 | 12 | 0 | 0 |
+| **Total** | **33** | **33** | **0** | **0** |
 
 ## P1 - Quick wins e correcoes de consistencia ✓ CONCLUIDO
 
@@ -89,35 +89,25 @@ Meta: entrar nas funcionalidades novas que dependem de P1/P2.
 | 4.5 | ciclo de vida das pendencias | ✓ feito | `PUT /:id` resolve/reabre; `PUT /:id/ocultar`; automaticas nao reabrem diretamente |
 | 4.6 | permissoes por perfil | ✓ feito | `requirePerfil()`: manifestar=escrevente; resolver/ocultar=admin/financeiro/chefe_financeiro |
 
-### Despesas de registro (8.x) — NAO INICIADO
+### Despesas de registro (8.x) ✓ CONCLUIDO
 
-| Item | Escopo | Status | Observacao |
+| Item | Escopo | Status | Evidencia |
 | --- | --- | --- | --- |
-| 8.1 | perfil `auxiliar_registro` | pendente | Perfis atuais: admin, chefe_financeiro, financeiro, escrevente |
-| 8.2 | tabela `despesas_registro` | pendente | Nenhuma migration ou schema |
-| 8.3 | regra de despesa apos pagamento | pendente | Depende de 8.2 |
-| 8.4 | limitar alteracao de `reembolso_tabeliao` | pendente | Sem restricao de permissao; qualquer user com PUT /atos pode editar |
+| 8.1 | perfil `auxiliar_registro` | ✓ feito | Migration 0018; auth/escopo/UI dedicados; Chromium em homologacao validado |
+| 8.2 | tabela `despesas_registro` | ✓ feito | Migration 0017; CRUD backend; pagina/modal dedicados; smoke e Chromium ok |
+| 8.3 | regra de despesa apos pagamento | ✓ feito | `despesas_registro` enriquecida com impacto financeiro; ato pago mantido; homologacao validada |
+| 8.4 | limitar alteracao de `reembolso_tabeliao` | ✓ feito | Regra explicita no backend/frontend com testes de regressao |
 
-### Refinamentos
+### Refinamentos ✓ CONCLUIDO
 
-| Item | Escopo | Status | Observacao |
+| Item | Escopo | Status | Evidencia |
 | --- | --- | --- | --- |
-| 3.1 fase 2 | persistencia de colunas no banco | parcial | Atos.jsx usa localStorage; Relatorios.jsx so state em memoria; sem tabela de preferencias |
-| 7.1 fase 2 | alerta financeiro e workflow de contestacao | parcial | Contestacao basica em reembolsos funciona; falta sistema proativo de alertas financeiros |
+| 3.1 fase 2 | persistencia de colunas no banco | ✓ feito | Tabela/API de preferencias; Atos e Relatorios persistem por usuario; Chromium com reload validado |
+| 7.1 fase 2 | alerta financeiro e workflow de contestacao | ✓ feito | Contestacao gera alerta proativo e badge para o financeiro; homologacao validada |
 
 ## Ordem recomendada para itens restantes
 
-### Proximo: Refinamentos de baixo risco
-
-- 8.4 — limitar `reembolso_tabeliao` por permissao (regra simples no PUT /atos)
-- 3.1 fase 2 — persistencia de colunas (localStorage em Relatorios ou tabela de preferencias)
-- 7.1 fase 2 — alertas financeiros (pode reaproveitar infraestrutura de pendencias)
-
-### Depois: Bloco de despesas de registro
-
-- 8.2 — tabela `despesas_registro` (migration + routes + UI)
-- 8.1 — perfil `auxiliar_registro` (migration + auth + UI)
-- 8.3 — regra de despesa apos pagamento (logica de negocio)
+Sem itens restantes deste backlog. O `P3` foi concluido em 24/03/2026 com validacao local e em homologacao Railway.
 
 ## Riscos por prioridade
 
@@ -129,7 +119,7 @@ Meta: entrar nas funcionalidades novas que dependem de P1/P2.
 
 - ~~alto risco~~ → concluido; model financeiro validado em homolog
 
-### P3 (restante)
+### P3
 
-- 8.x: medio-alto risco — novo subdominio, migration, perfil novo
-- refinamentos: baixo risco — melhorias incrementais
+- risco funcional mitigado por validacao local + homologacao
+- risco operacional remanescente: promover para producao com checklist de deploy e smoke

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Btn, FilterChip, Sheet } from '../components/ui/index.jsx';
 import { fmt, sLabel, sColor } from '../utils/format.js';
 
-export default function Dashboard({ atos, escreventes }) {
+export default function Dashboard({ atos, escreventes, contestacoesReembolsoAbertas = [], onOpenContestacoesReembolso }) {
   const anoAtual = new Date().getFullYear();
   const anosDisponiveis = useMemo(() => {
     const years = new Set([anoAtual]);
@@ -120,6 +120,41 @@ export default function Dashboard({ atos, escreventes }) {
           </div>
         </div>
       </div>
+
+      {contestacoesReembolsoAbertas.length > 0 && (
+        <div style={{ background: 'linear-gradient(135deg,#fff7ed,#ffffff)', borderRadius: 14, padding: 20, border: '1px solid #fed7aa', boxShadow: '0 2px 16px #7c2d120f' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: 0.8 }}>Alerta Financeiro</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#7c2d12', marginTop: 4 }}>
+                {contestacoesReembolsoAbertas.length} contestação(ões) de reembolso aguardando análise
+              </div>
+              <div style={{ fontSize: 13, color: '#9a3412', marginTop: 6, maxWidth: 760 }}>
+                O escrevente já sinalizou divergência. O financeiro pode tratar isso direto em Relatórios &gt; Reembolsos, sem depender de busca manual.
+              </div>
+            </div>
+            <Btn onClick={onOpenContestacoesReembolso} style={{ padding: '9px 14px', fontSize: 13 }}>
+              Abrir Reembolsos
+            </Btn>
+          </div>
+          <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+            {contestacoesReembolsoAbertas.slice(0, 3).map((item) => (
+              <div key={item.id} style={{ display: 'grid', gap: 4, padding: '12px 14px', borderRadius: 12, background: '#fff', border: '1px solid #fed7aa' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 700, color: '#7c2d12' }}>{item.escrevente?.nome || 'Escrevente'}</div>
+                  <div style={{ fontSize: 12, color: '#9a3412' }}>{item.pagamento?.data || item.criado_em?.slice(0, 10) || 'Data não informada'}</div>
+                </div>
+                <div style={{ fontSize: 13, color: '#475569' }}>
+                  Valor contestado: <strong>{fmt(item.pagamento?.valor || 0)}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: '#475569' }}>
+                  Justificativa: <em>{item.justificativa}</em>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Sheet
         open={showAnoSheet}

@@ -143,11 +143,18 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nome          VARCHAR(255) NOT NULL,
   email         VARCHAR(255) UNIQUE NOT NULL,
   senha_hash    VARCHAR(255) NOT NULL,
-  perfil        VARCHAR(30) NOT NULL CHECK (perfil IN ('admin','chefe_financeiro','financeiro','escrevente')),
+  perfil        VARCHAR(30) NOT NULL CHECK (perfil IN ('admin','chefe_financeiro','financeiro','escrevente','auxiliar_registro')),
   escrevente_id INTEGER REFERENCES escreventes(id),
   precisa_trocar_senha BOOLEAN NOT NULL DEFAULT FALSE,
   ativo         BOOLEAN DEFAULT true,
   created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS usuarios_preferencias (
+  user_id      INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  preferencias JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS import_lotes (
@@ -209,6 +216,20 @@ CREATE TABLE IF NOT EXISTS pendencias (
   metadata                JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS despesas_registro (
+  id                 SERIAL PRIMARY KEY,
+  controle_ref       VARCHAR(20) NOT NULL,
+  data_registro      DATE NOT NULL,
+  valor              DECIMAL(12,2) NOT NULL CHECK (valor > 0),
+  descricao          TEXT NOT NULL,
+  cartorio_nome      VARCHAR(255),
+  protocolo          VARCHAR(120),
+  observacoes        TEXT,
+  criado_por_user_id INTEGER REFERENCES usuarios(id),
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_atos_controle       ON atos(controle);
 CREATE INDEX IF NOT EXISTS idx_atos_livro_pagina   ON atos(livro, pagina);
@@ -238,6 +259,8 @@ CREATE INDEX IF NOT EXISTS idx_pendencias_escrevente ON pendencias(escrevente_id
 CREATE INDEX IF NOT EXISTS idx_pendencias_tipo ON pendencias(tipo, criado_em DESC);
 CREATE INDEX IF NOT EXISTS idx_pendencias_status_visibilidade ON pendencias(visivel, solucionado, criado_em, solucionado_em);
 CREATE INDEX IF NOT EXISTS idx_pendencias_controle_ref ON pendencias(controle_ref);
+CREATE INDEX IF NOT EXISTS idx_despesas_registro_controle_ref ON despesas_registro(controle_ref, data_registro DESC);
+CREATE INDEX IF NOT EXISTS idx_despesas_registro_created_at ON despesas_registro(created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_pendencias_chave_aberta
   ON pendencias(chave_unica)
   WHERE chave_unica IS NOT NULL
@@ -262,5 +285,11 @@ DO $$ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_pagamentos_ato_updated_at') THEN
     CREATE TRIGGER trg_pagamentos_ato_updated_at BEFORE UPDATE ON pagamentos_ato FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_usuarios_preferencias_updated_at') THEN
+    CREATE TRIGGER trg_usuarios_preferencias_updated_at BEFORE UPDATE ON usuarios_preferencias FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_despesas_registro_updated_at') THEN
+    CREATE TRIGGER trg_despesas_registro_updated_at BEFORE UPDATE ON despesas_registro FOR EACH ROW EXECUTE FUNCTION set_updated_at();
   END IF;
 END $$;

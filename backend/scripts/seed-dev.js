@@ -208,6 +208,31 @@ const reembolsos = [
   },
 ];
 
+const despesasRegistro = [
+  {
+    id: 1,
+    controle_ref: '00044',
+    data_registro: '2026-03-07',
+    valor: 80.0,
+    descricao: 'Prenotação de registro',
+    cartorio_nome: '2º Registro de Imóveis',
+    protocolo: 'REG-44',
+    observacoes: 'Despesa anterior ao ato',
+    criado_por_user_id: 1,
+  },
+  {
+    id: 2,
+    controle_ref: '00042',
+    data_registro: '2026-03-13',
+    valor: 95.0,
+    descricao: 'Complemento de prenotação pós-pagamento',
+    cartorio_nome: '2º Registro de Imóveis',
+    protocolo: 'REG-42B',
+    observacoes: 'Não deve reabrir o status do ato pago',
+    criado_por_user_id: 1,
+  },
+];
+
 const reivindicacoes = [
   {
     id: 1,
@@ -258,6 +283,7 @@ async function main() {
         pendencias,
         correcoes,
         pagamentos_reembolso,
+        despesas_registro,
         reivindicacoes,
         atos,
         usuarios,
@@ -351,6 +377,26 @@ async function main() {
       );
     }
 
+    for (const item of despesasRegistro) {
+      await client.query(
+        `INSERT INTO despesas_registro(
+          id, controle_ref, data_registro, valor, descricao,
+          cartorio_nome, protocolo, observacoes, criado_por_user_id
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          item.id,
+          item.controle_ref,
+          item.data_registro,
+          item.valor,
+          item.descricao,
+          item.cartorio_nome,
+          item.protocolo,
+          item.observacoes,
+          item.criado_por_user_id,
+        ]
+      );
+    }
+
     for (const item of reivindicacoes) {
       await client.query(
         `INSERT INTO reivindicacoes(
@@ -380,6 +426,7 @@ async function main() {
     await resetSequence(client, 'atos');
     await resetSequence(client, 'correcoes');
     await resetSequence(client, 'pagamentos_reembolso');
+    await resetSequence(client, 'despesas_registro');
     await resetSequence(client, 'reivindicacoes');
     await resetSequence(client, 'pendencias');
 

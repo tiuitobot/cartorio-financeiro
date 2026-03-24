@@ -60,6 +60,7 @@ app.use('/api/importacoes',   require('./routes/importacoes'));
 app.use('/api/pendencias',    require('./routes/pendencias'));
 app.use('/api/reembolsos',    require('./routes/reembolsos'));
 app.use('/api/reivindicacoes',require('./routes/reivindicacoes'));
+app.use('/api/despesas-registro', require('./routes/despesas-registro'));
 app.use('/api/usuarios',      require('./routes/usuarios'));
 
 // ── Frontend (produção) ────────────────────────────────────────────────────────
@@ -109,4 +110,8 @@ async function init() {
   }
 }
 
-init();
+if (require.main === module) {
+  init();
+}
+
+module.exports = { app, init };

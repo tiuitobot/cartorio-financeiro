@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  buildAtosScope,
   buildReembolsosScope,
   buildReivindicacoesScope,
 } = require('../lib/list-scopes');
@@ -46,5 +47,27 @@ test('list scopes nao restringem perfis financeiros e admin', () => {
   assert.deepEqual(
     buildReivindicacoesScope({ perfil: 'admin' }),
     { where: '', params: [] }
+  );
+
+  assert.deepEqual(
+    buildAtosScope({ perfil: 'chefe_financeiro' }),
+    { where: '', params: [] }
+  );
+});
+
+test('list scopes bloqueiam auxiliar_registro fora do subdomínio de registro', () => {
+  assert.deepEqual(
+    buildAtosScope({ perfil: 'auxiliar_registro' }),
+    { error: 'Permissão insuficiente' }
+  );
+
+  assert.deepEqual(
+    buildReembolsosScope({ perfil: 'auxiliar_registro' }),
+    { error: 'Permissão insuficiente' }
+  );
+
+  assert.deepEqual(
+    buildReivindicacoesScope({ perfil: 'auxiliar_registro' }),
+    { error: 'Permissão insuficiente' }
   );
 });

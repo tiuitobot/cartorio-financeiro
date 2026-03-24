@@ -5,6 +5,8 @@ const { defineConfig, devices } = require('@playwright/test');
 const rootDir = path.resolve(__dirname, '..');
 const chromiumPath = process.env.PLAYWRIGHT_CHROMIUM_PATH || '/snap/bin/chromium';
 const hasSystemChromium = fs.existsSync(chromiumPath);
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4173';
+const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER === '1';
 
 const launchOptions = {
   args: ['--no-sandbox'],
@@ -24,14 +26,14 @@ module.exports = defineConfig({
   },
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL,
     headless: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     launchOptions,
   },
-  webServer: [
+  webServer: skipWebServer ? undefined : [
     {
       command: './scripts/e2e-api.sh',
       cwd: rootDir,

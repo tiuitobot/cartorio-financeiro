@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePagination, Pagination } from '../components/ui/Pagination.jsx';
 import { Card, FInput, FSel, Btn, Badge, StickyXScroll, FilterChip, ActiveFilterTag, Sheet } from '../components/ui/index.jsx';
 import { padControle, fmt, fmtDate, sColor } from '../utils/format.js';
@@ -6,6 +6,7 @@ import { exportXLSX, ALL_COLS } from '../utils/export.js';
 import { FORMAS_PAGAMENTO } from '../constants.js';
 import { atoMatchesSearch } from '../utils/search.js';
 import ModalPgtoReembolso from '../components/modals/ModalPgtoReembolso.jsx';
+import { areStringArraysEqual, normalizeColumnSelection, readColumnSelectionFromStorage } from '../utils/column-preferences.js';
 
 // Formata o campo "Percentual/Fixo" do detalhamento de comissões.
 function formatPctFixo(pct, fixo) {
@@ -86,9 +87,32 @@ export default function Relatorios({
   onOcultarPendencia,
   userRole,
   userId,
+  initialTab,
+  contestacoesReembolsoAbertas = [],
+  userStorageKey,
+  preferredAtosColumns,
+  onSavePreferredAtosColumns,
 }) {
+  const storageKey = `colunas_relatorios_atos_${userStorageKey || 'anon'}`;
+  const allowedColumnKeys = useMemo(
+    () => ALL_COLS.map((item) => item.key),
+    []
+  );
+  const defaultColumns = useMemo(
+    () => ALL_COLS.filter((item) => item.def).map((item) => item.key),
+    []
+  );
+  const preferredColumnsKey = Array.isArray(preferredAtosColumns) ? preferredAtosColumns.join('|') : '__none__';
+  const normalizedPreferredColumns = useMemo(
+    () => normalizeColumnSelection(preferredAtosColumns, allowedColumnKeys),
+    [preferredColumnsKey, allowedColumnKeys]
+  );
   const [tab, setTab] = useState('atos');
-  const [selectedCols, setSelectedCols] = useState(() => ALL_COLS.filter((item) => item.def).map((item) => item.key));
+  const [selectedCols, setSelectedCols] = useState(() => (
+    normalizedPreferredColumns
+    ?? readColumnSelectionFromStorage(storageKey, allowedColumnKeys)
+    ?? defaultColumns
+  ));
   const [showColPanel, setShowColPanel] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showMensalPanel, setShowMensalPanel] = useState(false);
@@ -112,6 +136,7 @@ export default function Relatorios({
   const [pFim, setPFim] = useState('');
   const [pStatus, setPStatus] = useState('abertas');
   const [modalReembolso, setModalReembolso] = useState(null);
+  const lastPersistedColsRef = useRef(normalizedPreferredColumns);
   const escreventesById = useMemo(
     () => new Map(escreventes.map((item) => [item.id, item])),
     [escreventes]
@@ -121,12 +146,48 @@ export default function Relatorios({
     [atos]
   );
 
+  useEffect(() => {
+    if (normalizedPreferredColumns === null) return;
+    lastPersistedColsRef.current = normalizedPreferredColumns;
+    setSelectedCols((prev) => (
+      areStringArraysEqual(prev, normalizedPreferredColumns) ? prev : normalizedPreferredColumns
+    ));
+  }, [normalizedPreferredColumns]);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(selectedCols));
+  }, [selectedCols, storageKey]);
+
+  useEffect(() => {
+    if (!onSavePreferredAtosColumns) return undefined;
+    if (lastPersistedColsRef.current && areStringArraysEqual(selectedCols, lastPersistedColsRef.current)) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      const nextSelection = [...selectedCols];
+      onSavePreferredAtosColumns(nextSelection)
+        .then(() => {
+          lastPersistedColsRef.current = nextSelection;
+        })
+        .catch(() => {});
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedCols, onSavePreferredAtosColumns]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
+
   const tabs = [
     { key: 'atos', label: '📋 Atos' },
     { key: 'mensal', label: '📅 Mensal' },
     { key: 'comissoes', label: '📊 Comissões' },
     { key: 'pendencias', label: '⚠️ Pendências' },
-    { key: 'reembolsos', label: '🔄 Reembolsos' },
+    { key: 'reembolsos', label: contestacoesReembolsoAbertas.length > 0 && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) ? `🔄 Reembolsos (${contestacoesReembolsoAbertas.length})` : '🔄 Reembolsos' },
   ];
 
   const atosFiltrados = useMemo(() => {
@@ -436,7 +497,7 @@ export default function Relatorios({
                   <Btn variant="secondary" onClick={() => setSelectedCols(ALL_COLS.map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '8px 12px' }}>
                     Todas
                   </Btn>
-                  <Btn variant="secondary" onClick={() => setSelectedCols(ALL_COLS.filter((coluna) => coluna.def).map((coluna) => coluna.key))} style={{ fontSize: 12, padding: '8px 12px' }}>
+                  <Btn variant="secondary" onClick={() => setSelectedCols(defaultColumns)} style={{ fontSize: 12, padding: '8px 12px' }}>
                     Padrão
                   </Btn>
                 </div>
@@ -1072,6 +1133,42 @@ export default function Relatorios({
 
       {tab === 'reembolsos' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && contestacoesReembolsoAbertas.length > 0 && (
+            <Card style={{ borderLeft: '4px solid #f97316', background: '#fff7ed' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#9a3412' }}>⚠️ Contestação de Reembolso Aguardando Financeiro ({contestacoesReembolsoAbertas.length})</div>
+                  <div style={{ fontSize: 12, color: '#9a3412', marginTop: 4 }}>
+                    O escrevente contestou o pagamento. Resolver aqui encerra o alerta e também a pendência operacional.
+                  </div>
+                </div>
+                <Btn variant="secondary" onClick={() => setTab('pendencias')} style={{ padding: '8px 12px', fontSize: 12 }}>
+                  Ver Pendências
+                </Btn>
+              </div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {contestacoesReembolsoAbertas.map((item) => (
+                  <div key={item.id} style={{ padding: '12px 14px', background: '#fff', borderRadius: 12, border: '1px solid #fdba74' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        <div style={{ fontWeight: 700, color: '#7c2d12' }}>{item.escrevente?.nome || 'Escrevente não identificado'}</div>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                          Valor: <strong>{fmt(item.pagamento?.valor || 0)}</strong> · Data: <strong>{fmtDate(item.pagamento?.data || item.criado_em)}</strong>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#475569' }}>
+                          Justificativa: <em>{item.justificativa}</em>
+                        </div>
+                      </div>
+                      <Btn variant="success" onClick={() => onConfirmarReembolso?.(item.reembolso_id)} style={{ fontSize: 12, padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                        Confirmar Pagamento
+                      </Btn>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {[
               { l: 'Remb. Tabelião lançado', v: fmt(atos.reduce((sum, ato) => sum + ato.reembolso_tabeliao, 0)), c: '#7c3aed' },

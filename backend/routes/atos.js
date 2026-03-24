@@ -1,6 +1,11 @@
 const router = require('express').Router();
 const db = require('../db');
 const { authMiddleware, requirePerfil } = require('../middleware/auth');
+const {
+  canEditAto,
+  canEditReembolsoTabeliao,
+  validateReembolsoTabeliaoWrite,
+} = require('../lib/ato-permissions');
 const { calcStatus, enrichAtoFinance } = require('../lib/finance');
 const { buildAtosScope } = require('../lib/list-scopes');
 const {
@@ -86,7 +91,14 @@ function normalizeAtoPayload(payload, options = {}) {
   };
 }
 
-function validateAtoPayload(ato) {
+function validateAtoPayload(ato, options = {}) {
+  const reembolsoTabeliaoError = validateReembolsoTabeliaoWrite({
+    actor: options.actor || null,
+    previousAto: options.previousAto || null,
+    nextAto: ato,
+  });
+  if (reembolsoTabeliaoError) return reembolsoTabeliaoError;
+
   if (ato.controle === '00000') return 'Controle é obrigatório';
   if (ato.livro === '0') return 'Livro é obrigatório';
   if (ato.pagina === '0') return 'Página é obrigatória';
@@ -290,6 +302,8 @@ router.get('/', authMiddleware, async (req, res) => {
     let where = ['1=1'];
     let params = [];
     let i = 1;
+    const scope = buildAtosScope(req.user);
+    if (scope.error) return res.status(403).json({ erro: scope.error });
 
     if (status) { where.push(`a.status=$${i++}`); params.push(status); }
     if (captador_id) { where.push(`a.captador_id=$${i++}`); params.push(parseInt(captador_id)); }
@@ -308,19 +322,13 @@ router.get('/', authMiddleware, async (req, res) => {
       i += 1;
     }
 
-    // Filtro de visibilidade para escreventes (captador-only sharing)
-    if (req.user.perfil === 'escrevente') {
-      const scope = buildAtosScope(req.user);
-      if (scope.error) return res.status(403).json({ erro: scope.error });
-      if (scope.where) {
-        // Reindex $1 → $i para compatibilidade com o query builder
-        const scopeCondition = scope.where
-          .replace(/^\s*WHERE\s*/i, '')
-          .replace(/\$1/g, `$${i}`);
-        where.push(scopeCondition);
-        params.push(...scope.params);
-        i += scope.params.length;
-      }
+    if (scope.where) {
+      const scopeCondition = scope.where
+        .replace(/^\s*WHERE\s*/i, '')
+        .replace(/\$1/g, `$${i}`);
+      where.push(scopeCondition);
+      params.push(...scope.params);
+      i += scope.params.length;
     }
 
     const sql = `
@@ -344,7 +352,10 @@ router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_finan
   const client = await db.connect();
   try {
     const atoPayload = normalizeAtoPayload(req.body, { actor: req.user });
-    const validationError = validateAtoPayload(atoPayload);
+    const validationError = validateAtoPayload(atoPayload, {
+      actor: req.user,
+      previousAto: null,
+    });
     if (validationError) return res.status(400).json({ erro: validationError });
 
     await client.query('BEGIN');
@@ -378,7 +389,7 @@ router.post('/', authMiddleware, requirePerfil('admin','financeiro','chefe_finan
 // ── PUT /api/atos/:id ─────────────────────────────────────────────────────────
 router.put('/:id', authMiddleware, async (req, res) => {
   const id = parseInt(req.params.id);
-  const podeEditar = ['admin','financeiro','chefe_financeiro'].includes(req.user.perfil);
+  const podeEditar = canEditAto(req.user);
   if (!podeEditar) return res.status(403).json({ erro: 'Permissão insuficiente' });
 
   const client = await db.connect();
@@ -406,7 +417,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
       previousPagamentos: currentPagamentos,
       actor: req.user,
     });
-    const validationError = validateAtoPayload(atoPayload);
+    const validationError = validateAtoPayload(atoPayload, {
+      actor: req.user,
+      previousAto: currentRows[0],
+    });
     if (validationError) {
       await client.query('ROLLBACK');
       return res.status(400).json({ erro: validationError });
