@@ -23,6 +23,12 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// Round to 2 decimal places to avoid IEEE 754 floating-point drift
+// in financial calculations (e.g. 0.1 + 0.2 !== 0.3).
+function round2(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 function calcStatus(emolumentos, repasses, issqn, rembTab, rembEsc, valorPago) {
   const total = toNumber(emolumentos)
     + toNumber(repasses)
@@ -58,7 +64,7 @@ function reembolsoDevidoEscrevente(ato) {
   const sobra = valorPago - prioridade;
 
   if (sobra <= 0) return 0;
-  return Math.min(sobra, reembolsoEscrevente);
+  return round2(Math.min(sobra, reembolsoEscrevente));
 }
 
 function calcularComissoes(ato) {
@@ -121,7 +127,7 @@ function calcularComissoes(ato) {
       papel: 'Captador',
       pct: percentualCaptador,
       fixo: temSignatario ? -valorSignatario : 0,
-      total: Math.max(0, valorCaptador),
+      total: round2(Math.max(0, valorCaptador)),
     });
     if (temExecutor) {
       resultado.push({
@@ -130,7 +136,7 @@ function calcularComissoes(ato) {
         papel: 'Executor',
         pct: 6,
         fixo: 0,
-        total: (executor.taxa === 0) ? 0 : (base * 6) / 100,
+        total: (executor.taxa === 0) ? 0 : round2((base * 6) / 100),
       });
     }
     if (temSignatario) {
@@ -156,7 +162,7 @@ function calcularComissoes(ato) {
       papel: 'Captador',
       pct: 20,
       fixo: temSignatario ? -valorSignatario : 0,
-      total: Math.max(0, valorCaptador),
+      total: round2(Math.max(0, valorCaptador)),
     });
     if (temExecutor) {
       resultado.push({
@@ -165,7 +171,7 @@ function calcularComissoes(ato) {
         papel: 'Executor',
         pct: 6,
         fixo: 0,
-        total: (executor.taxa === 0) ? 0 : (base * 6) / 100,
+        total: (executor.taxa === 0) ? 0 : round2((base * 6) / 100),
       });
     }
     if (temSignatario) {
@@ -187,7 +193,7 @@ function calcularComissoes(ato) {
     papel: 'Captador',
     pct: 6,
     fixo: 0,
-    total: (base * 6) / 100,
+    total: round2((base * 6) / 100),
   });
   if (temExecutor) {
     resultado.push({
@@ -196,7 +202,7 @@ function calcularComissoes(ato) {
       papel: 'Executor',
       pct: 6,
       fixo: 0,
-      total: (executor.taxa === 0) ? 0 : (base * 6) / 100,
+      total: (executor.taxa === 0) ? 0 : round2((base * 6) / 100),
     });
   }
   if (temSignatario) {

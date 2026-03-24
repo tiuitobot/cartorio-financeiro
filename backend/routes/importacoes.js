@@ -161,16 +161,20 @@ async function findEscreventeBlockingRefs(client, escreventeId) {
 
 async function deleteImportedEscreventesIfOrphan(client, importResult) {
   const ids = extractCreatedEscreventeIds(importResult || {});
+  if (!ids.length) return { deleted: [], skipped: [] };
+
   const deleted = [];
   const skipped = [];
 
-  for (const escreventeId of ids) {
-    const existing = await client.query(
-      'SELECT id, nome, taxa FROM escreventes WHERE id = $1',
-      [escreventeId]
-    );
-    const row = existing.rows[0];
+  // Batch fetch all escreventes in one query
+  const { rows: existingRows } = await client.query(
+    'SELECT id, nome, taxa FROM escreventes WHERE id = ANY($1::int[])',
+    [ids]
+  );
+  const existingMap = new Map(existingRows.map((r) => [r.id, r]));
 
+  for (const escreventeId of ids) {
+    const row = existingMap.get(escreventeId);
     if (!row) {
       skipped.push({
         id: escreventeId,
@@ -180,6 +184,8 @@ async function deleteImportedEscreventesIfOrphan(client, importResult) {
       continue;
     }
 
+    // findEscreventeBlockingRefs runs a single multi-table EXISTS query per id;
+    // batching further would require a more complex CTE — keep per-id for clarity.
     const blockingRefs = await findEscreventeBlockingRefs(client, escreventeId);
     if (blockingRefs.length) {
       skipped.push({
