@@ -71,8 +71,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
         return res.status(403).json({ erro: 'Somente o captador pode responder' });
       }
       if (status === 'aceita') {
-        const campo = r.funcao === 'executor' ? 'executor_id' : 'signatario_id';
-        await client.query(`UPDATE atos SET ${campo}=$1 WHERE id=$2`, [r.escrevente_id, r.ato_id]);
+        if (r.funcao === 'executor') {
+          await client.query('UPDATE atos SET executor_id=$1 WHERE id=$2', [r.escrevente_id, r.ato_id]);
+        } else {
+          await client.query('UPDATE atos SET signatario_id=$1 WHERE id=$2', [r.escrevente_id, r.ato_id]);
+        }
       }
     }
     // Escrevente contesta recusa
@@ -90,8 +93,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
           return res.status(403).json({ erro: 'Permissão insuficiente' });
         }
       if (status === 'aceita_financeiro') {
-        const campo = r.funcao === 'executor' ? 'executor_id' : 'signatario_id';
-        await client.query(`UPDATE atos SET ${campo}=$1 WHERE id=$2`, [r.escrevente_id, r.ato_id]);
+        if (r.funcao === 'executor') {
+          await client.query('UPDATE atos SET executor_id=$1 WHERE id=$2', [r.escrevente_id, r.ato_id]);
+        } else {
+          await client.query('UPDATE atos SET signatario_id=$1 WHERE id=$2', [r.escrevente_id, r.ato_id]);
+        }
       }
     }
     const { rows } = await client.query(

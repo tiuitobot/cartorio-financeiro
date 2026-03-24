@@ -13,7 +13,13 @@ const PORT = parseInt(process.env.PORT || '3001');
 
 function buildCorsOrigin() {
   const raw = process.env.CORS_ORIGIN;
-  if (!raw) return true;
+  if (!raw) {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('⚠️ CORS_ORIGIN não definido em produção — aceitando somente same-origin.');
+      return false;
+    }
+    return true;
+  }
   if (raw === '*') return true;
 
   const allowed = raw
@@ -91,9 +97,6 @@ async function init() {
     }
     await db.query('SELECT 1');
     console.log('✅ Banco de dados conectado');
-    if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
-      console.warn('⚠️ CORS_ORIGIN não definido; qualquer origem será aceita.');
-    }
     app.listen(PORT, HOST, () => {
       console.log(`✅ Servidor rodando na porta ${PORT}`);
       console.log(`   Host: ${HOST}`);
