@@ -310,22 +310,18 @@ function isUserRelatedToAto(ato, escreventeId) {
   return [ato.captador_id, ato.executor_id, ato.signatario_id].includes(escreventeId);
 }
 
-async function createManifestacaoPendencia(client, { ato, user, mensagem, confirmarSemRelacao = false }) {
+async function createManifestacaoPendencia(client, { ato, user, mensagem, tipoManifestacao, livroRef, paginaRef, confirmarSemRelacao = false }) {
   const texto = normalizeNullableString(mensagem);
   if (!texto) {
     return { error: 'Manifestação obrigatória' };
-  }
-
-  if (!ato) {
-    return { error: 'Ato não encontrado' };
   }
 
   if (!user?.escrevente_id) {
     return { error: 'Usuário não vinculado a escrevente' };
   }
 
-  const relacionado = isUserRelatedToAto(ato, user.escrevente_id);
-  if (!relacionado && !confirmarSemRelacao) {
+  const relacionado = ato ? isUserRelatedToAto(ato, user.escrevente_id) : false;
+  if (ato && !relacionado && !confirmarSemRelacao) {
     return {
       requiresConfirmation: true,
       ato: {
@@ -338,28 +334,47 @@ async function createManifestacaoPendencia(client, { ato, user, mensagem, confir
     };
   }
 
-  const mensagemCorrecao = buildManifestacaoMensagem(user, texto);
-  const correctionResult = await client.query(
-    `INSERT INTO correcoes(ato_id, autor, autor_id, mensagem, data, status)
-     VALUES($1,$2,$3,$4,$5,'aguardando')
-     RETURNING id`,
-    [ato.id, user.nome || user.email || 'Escrevente', user.id || null, mensagemCorrecao, formatDatePtBr()]
-  );
+  let correcaoId = null;
+  if (ato) {
+    const mensagemCorrecao = buildManifestacaoMensagem(user, texto);
+    const correctionResult = await client.query(
+      `INSERT INTO correcoes(ato_id, autor, autor_id, mensagem, data, status)
+       VALUES($1,$2,$3,$4,$5,'aguardando')
+       RETURNING id`,
+      [ato.id, user.nome || user.email || 'Escrevente', user.id || null, mensagemCorrecao, formatDatePtBr()]
+    );
+    correcaoId = correctionResult.rows[0].id;
+  }
 
   const pendencia = await upsertOpenPendencia(client, {
-    ato_id: ato.id,
+    ato_id: ato?.id || null,
     tipo: PENDENCIA_TIPOS.MANIFESTACAO_ESCREVENTE,
     descricao: texto,
     escrevente_id: user.escrevente_id,
     origem: 'escrevente',
-      controle_ref: normalizeControle(ato.controle),
-      data_ato_ref: normalizeDateRef(ato.data_ato),
+    controle_ref: ato ? normalizeControle(ato.controle) : null,
+    data_ato_ref: ato ? normalizeDateRef(ato.data_ato) : null,
     criado_por_user_id: user.id || null,
     metadata: {
       relacionado_ao_ato: relacionado,
-      correcao_id: correctionResult.rows[0].id,
+      correcao_id: correcaoId,
+      tipo_manifestacao: tipoManifestacao || null,
+      livro_ref: livroRef || null,
+      pagina_ref: paginaRef || null,
     },
   });
+
+  // Persist tipo_manifestacao and livro/pagina refs directly on the pendencia row
+  if (tipoManifestacao || livroRef || paginaRef) {
+    await client.query(
+      `UPDATE pendencias
+          SET tipo_manifestacao = COALESCE($2, tipo_manifestacao),
+              livro_ref = COALESCE($3, livro_ref),
+              pagina_ref = COALESCE($4, pagina_ref)
+        WHERE id = $1`,
+      [pendencia.id, tipoManifestacao || null, livroRef || null, paginaRef || null]
+    );
+  }
 
   return { pendencia, relacionado };
 }

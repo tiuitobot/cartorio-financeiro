@@ -73,7 +73,7 @@ test.describe('smoke e2e', () => {
     await expect(page.getByText('00047')).toBeVisible();
   });
 
-  test('escrevente vê escopo reduzido e acessa modal de declaração', async ({ page }) => {
+  test('escrevente vê escopo reduzido e botão de manifestação (sem declaro participação)', async ({ page }) => {
     await login(page, 'joao@cartorio.com', 'CartorioDev123');
 
     await expect(page.getByRole('button', { name: /Escreventes/ })).toHaveCount(0);
@@ -83,18 +83,11 @@ test.describe('smoke e2e', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Livros de Notas' })).toBeVisible();
     const linhasAtos = page.locator('table tbody tr');
     await expect(linhasAtos.first()).toBeVisible();
-    expect(await linhasAtos.count()).toBeGreaterThanOrEqual(4);
-    await expect(page.getByRole('button', { name: /Declaro Participação/ })).toBeVisible();
-    await expect(page.getByText('00047')).toBeVisible();
 
-    await page.getByRole('button', { name: /Declaro Participação/ }).click();
-    await expect(page.getByText('Reivindicação de Participação')).toBeVisible();
+    // Declaro Participação removido
+    await expect(page.getByRole('button', { name: /Declaro Participação/ })).toHaveCount(0);
 
-    await page.locator('input[placeholder="ex: 00042 ou L42P15"]').fill('00043');
-    await page.getByRole('button', { name: /Buscar/ }).click();
-
-    await expect(page.getByText('Ato encontrado')).toBeVisible();
-    await expect(page.locator('strong').filter({ hasText: '00043' }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /Enviar Declaração/ })).toBeVisible();
+    // Manifestar Pendência presente
+    await expect(page.getByRole('button', { name: /Manifestar Pendência/ })).toBeVisible();
   });
 });

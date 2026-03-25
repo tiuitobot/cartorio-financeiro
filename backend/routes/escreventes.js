@@ -24,14 +24,8 @@ async function fetchEscreventeById(dbClient, id) {
       e.ativo,
       e.created_at,
       e.updated_at,
-      COALESCE(comp.compartilhar_com, '[]'::json) AS compartilhar_com,
       COALESCE(hist.taxas_historico, '[]'::json) AS taxas_historico
     FROM escreventes e
-    LEFT JOIN LATERAL (
-      SELECT json_agg(ec.compartilha_com_id ORDER BY ec.compartilha_com_id) AS compartilhar_com
-      FROM escreventes_compartilhamento ec
-      WHERE ec.escrevente_id = e.id
-    ) comp ON TRUE
     LEFT JOIN LATERAL (
       SELECT json_agg(row_to_json(item) ORDER BY item.vigencia_inicio DESC, item.id DESC) AS taxas_historico
       FROM (
@@ -68,14 +62,8 @@ router.get('/', authMiddleware, requirePerfil('admin', 'chefe_financeiro', 'fina
         e.ativo,
         e.created_at,
         e.updated_at,
-        COALESCE(comp.compartilhar_com, '[]'::json) AS compartilhar_com,
         COALESCE(hist.taxas_historico, '[]'::json) AS taxas_historico
       FROM escreventes e
-      LEFT JOIN LATERAL (
-        SELECT json_agg(ec.compartilha_com_id ORDER BY ec.compartilha_com_id) AS compartilhar_com
-        FROM escreventes_compartilhamento ec
-        WHERE ec.escrevente_id = e.id
-      ) comp ON TRUE
       LEFT JOIN LATERAL (
         SELECT json_agg(row_to_json(item) ORDER BY item.vigencia_inicio DESC, item.id DESC) AS taxas_historico
         FROM (
@@ -104,7 +92,7 @@ router.get('/', authMiddleware, requirePerfil('admin', 'chefe_financeiro', 'fina
 
 // POST /api/escreventes
 router.post('/', authMiddleware, requirePerfil('admin'), async (req, res) => {
-  const { nome, cargo, email, taxa, compartilhar_com = [] } = req.body;
+  const { nome, cargo, email, taxa } = req.body;
   const taxaInt = Number.parseInt(taxa, 10);
   if (!nome || ![0,6,20,30].includes(taxaInt))
     return res.status(400).json({ erro: 'Nome e taxa (0, 6, 20 ou 30) obrigatórios' });
@@ -122,12 +110,6 @@ router.post('/', authMiddleware, requirePerfil('admin'), async (req, res) => {
       vigenciaInicio: HISTORICO_TAXA_BASE_DATE,
       createdByUserId: req.user.id || null,
     });
-    for (const cid of compartilhar_com) {
-      await client.query(
-        'INSERT INTO escreventes_compartilhamento VALUES($1,$2) ON CONFLICT DO NOTHING',
-        [novo.id, cid]
-      );
-    }
     await client.query('COMMIT');
     const escrevente = await fetchEscreventeById(db, novo.id);
     res.status(201).json(escrevente);
@@ -145,7 +127,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
   const isOwner = req.user.escrevente_id === id;
   if (!isAdmin && !isOwner) return res.status(403).json({ erro: 'Permissão insuficiente' });
 
-  const { nome, cargo, email, taxa, compartilhar_com = [] } = req.body;
+  const { nome, cargo, email, taxa } = req.body;
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -183,15 +165,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
         });
       }
     } else {
-      // Escrevente só pode atualizar compartilhamentos
-    }
-    // Atualiza compartilhamentos
-    await client.query('DELETE FROM escreventes_compartilhamento WHERE escrevente_id=$1', [id]);
-    for (const cid of compartilhar_com) {
-      await client.query(
-        'INSERT INTO escreventes_compartilhamento VALUES($1,$2) ON CONFLICT DO NOTHING',
-        [id, cid]
-      );
+      // Escrevente: sem campos editáveis (compartilhamento removido)
+      await client.query('ROLLBACK');
+      return res.status(403).json({ erro: 'Permissão insuficiente' });
     }
     await client.query('COMMIT');
     const escrevente = await fetchEscreventeById(db, id);

@@ -231,7 +231,10 @@ export default function Relatorios({
   const atosFat = useMemo(() => atos.filter((ato) => ato.data_ato?.startsWith(mesFat)), [atos, mesFat]);
   const atosRec = useMemo(() => atos.filter((ato) => ato.data_pagamento?.startsWith(mesRec)), [atos, mesRec]);
 
-  const escFiltrados = comEscIds.length > 0 ? escreventes.filter((item) => comEscIds.includes(item.id)) : escreventes;
+  const escreventesComissao = userRole === 'escrevente' && userId
+    ? escreventes.filter((item) => item.id === userId)
+    : escreventes;
+  const escFiltrados = comEscIds.length > 0 ? escreventesComissao.filter((item) => comEscIds.includes(item.id)) : escreventesComissao;
   const dadosCom = useMemo(() => escFiltrados.map((escrevente) => {
     const atosPeriodo = atos.filter((ato) => (!comInicio || ato.data_ato >= comInicio) && (!comFim || ato.data_ato <= comFim));
     const atosPraticados = atosPeriodo.filter((ato) => [ato.captador_id, ato.executor_id, ato.signatario_id].includes(escrevente.id));
@@ -766,20 +769,22 @@ export default function Relatorios({
                   <FInput label="Fim" type="date" value={comFim} onChange={(e) => setComFim(e.target.value)} />
                 </div>
               </div>
-              <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Escreventes</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {escreventes.map((item) => (
-                    <FilterChip
-                      key={item.id}
-                      active={comEscIds.includes(item.id)}
-                      onClick={() => setComEscIds((prev) => prev.includes(item.id) ? prev.filter((value) => value !== item.id) : [...prev, item.id])}
-                    >
-                      {item.nome.split(' ')[0]}
-                    </FilterChip>
-                  ))}
+              {!(userRole === 'escrevente' && userId) && (
+                <div style={{ padding: 14, border: '1px solid #dbe4f0', borderRadius: 18, background: '#fff' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 10 }}>Escreventes</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {escreventes.map((item) => (
+                      <FilterChip
+                        key={item.id}
+                        active={comEscIds.includes(item.id)}
+                        onClick={() => setComEscIds((prev) => prev.includes(item.id) ? prev.filter((value) => value !== item.id) : [...prev, item.id])}
+                      >
+                        {item.nome.split(' ')[0]}
+                      </FilterChip>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </Sheet>
 
@@ -1032,12 +1037,6 @@ export default function Relatorios({
                   {pagPendencias.paginatedItems.map((item, index) => {
                     const ato = atos.find((atoAtual) => atoAtual.id === item.ato_id) || null;
                     const automatic = isAutomaticPendencia(item);
-                    const canOpenConference = (
-                      item.tipo === 'confirmacao_pendente'
-                      && ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole)
-                      && item.pode_abrir_ato
-                      && ato
-                    );
                     return (
                       <tr key={item.id} style={{ borderTop: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#fafbfc' }}>
                         <TD c={fmtDate(item.criado_em)} />
@@ -1061,31 +1060,9 @@ export default function Relatorios({
                         </td>
                         <td style={{ padding: '10px 14px' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                            {canOpenConference && (
-                              <Btn
-                                variant="warning"
-                                onClick={() => onOpenAto?.({ ...ato, _openSection: 'financeiro' })}
-                                style={{ fontSize: 12, padding: '6px 12px' }}
-                              >
-                                Abrir conferência
-                              </Btn>
-                            )}
-                            {item.pode_abrir_ato && ato && !canOpenConference && (
+                            {item.pode_abrir_ato && ato && (
                               <Btn variant="secondary" onClick={() => onOpenAto?.(ato)} style={{ fontSize: 12, padding: '6px 12px' }}>
                                 Abrir ato
-                              </Btn>
-                            )}
-                            {['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && !item.solucionado && (
-                              <Btn
-                                variant="success"
-                                onClick={async () => {
-                                  const resolucao = window.prompt('Observação da solução (opcional):', '');
-                                  if (resolucao === null) return;
-                                  await onAtualizarPendencia?.(item.id, { solucionado: true, resolucao });
-                                }}
-                                style={{ fontSize: 12, padding: '6px 12px' }}
-                              >
-                                Solucionar
                               </Btn>
                             )}
                             {['admin', 'financeiro', 'chefe_financeiro'].includes(userRole) && item.solucionado && (

@@ -34,8 +34,8 @@ const CONFERENCIA_OPTIONS = [
 ];
 
 export default function Atos({
-  atos, escreventes, reivindicacoes, userRole, userId,
-  onOpenAto, onDeclaro, onRespostaCaptador, onContestar, onDecisaoFinanceiro,
+  atos, escreventes, userRole, userId,
+  onOpenAto,
   busca, onBusca, userStorageKey, preferredColumns, onSavePreferredColumns,
 }) {
   const storageKey = `colunas_livros_${userStorageKey || 'anon'}`;
@@ -102,9 +102,6 @@ export default function Atos({
     ));
   };
 
-  const reivRecusadas   = reivindicacoes.filter(r => r.escrevente_id === userId && r.status === 'recusada');
-  const reivPendentes   = reivindicacoes.filter(r => r.status === 'pendente' && atos.find(a => a.id === r.ato_id && a.captador_id === userId));
-  const reivContestadas = reivindicacoes.filter(r => r.status === 'contestada');
   const podeConferirFinanceiro = ['admin', 'financeiro', 'chefe_financeiro'].includes(userRole);
   const hasFiltrosAtivos = Boolean(
     busca || fCaptador || fEnvolvido || fStatus || fConfirmacao || fInicio || fFim || fValorMin || fValorMax
@@ -221,62 +218,6 @@ export default function Atos({
 
   return (
     <div>
-      {userRole === 'escrevente' && reivRecusadas.length > 0 && (
-        <Card style={{ marginBottom: 18, borderLeft: '4px solid #ef4444', background: '#fef2f2' }}>
-          <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: 10 }}>⚠️ Reivindicação Recusada pelo Captador</div>
-          {reivRecusadas.map(r => {
-            const ato = atos.find(a => a.id === r.ato_id);
-            return (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fff', borderRadius: 10, border: '1px solid #fecaca', marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>Ato {padControle(ato?.controle || '')} — {r.funcao === 'executor' ? 'Executor' : 'Signatário'}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Justificativa: <em>{r.justificativa}</em></div>
-                </div>
-                <Btn variant="warning" onClick={() => onContestar(r.id)} style={{ fontSize: 12, padding: '6px 14px', whiteSpace: 'nowrap' }}>Contestar</Btn>
-              </div>
-            );
-          })}
-        </Card>
-      )}
-
-      {userRole === 'escrevente' && reivPendentes.length > 0 && (
-        <Card style={{ marginBottom: 18, borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
-          <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 10 }}>🔔 Reivindicações Aguardando Sua Resposta</div>
-          {reivPendentes.map(r => {
-            const ato = atos.find(a => a.id === r.ato_id);
-            return (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fff', borderRadius: 10, border: '1px solid #fde68a', marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{r.escrevente_nome} — {r.funcao === 'executor' ? 'Executor' : 'Signatário'}</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Ato {padControle(ato?.controle || '')} — {fmtRef(ato?.livro, ato?.pagina)}</div>
-                </div>
-                <Btn variant="warning" onClick={() => onRespostaCaptador(r)} style={{ fontSize: 12, padding: '6px 14px', whiteSpace: 'nowrap' }}>Responder</Btn>
-              </div>
-            );
-          })}
-        </Card>
-      )}
-
-      {['financeiro', 'chefe_financeiro', 'admin'].includes(userRole) && reivContestadas.length > 0 && (
-        <Card style={{ marginBottom: 18, borderLeft: '4px solid #3b82f6', background: '#eff6ff' }}>
-          <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: 10 }}>⚖️ Contestações Aguardando Decisão ({reivContestadas.length})</div>
-          {reivContestadas.map(r => {
-            const ato = atos.find(a => a.id === r.ato_id);
-            const captador = escreventes.find(e => e.id === ato?.captador_id);
-            return (
-              <div key={r.id} style={{ padding: '12px 14px', background: '#fff', borderRadius: 10, border: '1px solid #bfdbfe', marginBottom: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.escrevente_nome} — {r.funcao === 'executor' ? 'Executor' : 'Signatário'} | Ato {padControle(ato?.controle || '')} | Captador: {captador?.nome || '—'}</div>
-                <div style={{ fontSize: 12, color: '#ef4444', margin: '4px 0 10px' }}>Recusa: <em>{r.justificativa}</em></div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Btn variant="success" onClick={() => onDecisaoFinanceiro(r.id, true)} style={{ fontSize: 12, padding: '6px 14px' }}>✅ Aceitar</Btn>
-                  <Btn variant="danger" onClick={() => onDecisaoFinanceiro(r.id, false)} style={{ fontSize: 12, padding: '6px 14px' }}>❌ Negar</Btn>
-                </div>
-              </div>
-            );
-          })}
-        </Card>
-      )}
-
       <Card style={{ marginBottom: 18, padding: 20, background: 'linear-gradient(180deg,#ffffff,#f8fbff)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <div>

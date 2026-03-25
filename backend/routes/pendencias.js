@@ -124,34 +124,59 @@ router.get('/', authMiddleware, requirePerfil('admin', 'financeiro', 'chefe_fina
   }
 });
 
+const TIPOS_MANIFESTACAO_VALIDOS = [
+  'reivindicar_participacao',
+  'excluir_participacao',
+  'retificar_valores',
+  'esclarecer_pagamento',
+  'outros',
+];
+
 router.post('/manifestar', authMiddleware, requirePerfil('escrevente'), async (req, res) => {
   const controle = normalizeControle(req.body?.controle);
+  const livro = req.body?.livro ? String(req.body.livro).trim() : null;
+  const pagina = req.body?.pagina ? String(req.body.pagina).trim() : null;
   const mensagem = req.body?.mensagem;
+  const tipoManifestacao = req.body?.tipo_manifestacao;
   const confirmarSemRelacao = req.body?.confirmar_sem_relacao === true;
 
-  if (!controle) {
-    return res.status(400).json({ erro: 'Controle obrigatório' });
+  if (!tipoManifestacao || !TIPOS_MANIFESTACAO_VALIDOS.includes(tipoManifestacao)) {
+    return res.status(400).json({ erro: 'Selecione o tipo da manifestação' });
+  }
+
+  if (!mensagem || !String(mensagem).trim()) {
+    return res.status(400).json({ erro: 'Descreva a manifestação' });
   }
 
   const client = await db.connect();
   try {
     await client.query('BEGIN');
 
-    const { rows: atos } = await client.query(
-      'SELECT id, controle, livro, pagina, data_ato, captador_id, executor_id, signatario_id FROM atos WHERE controle = $1 LIMIT 1',
-      [controle]
-    );
-
-    if (!atos.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ erro: 'Ato não encontrado para o controle informado' });
+    // Tenta localizar ato por controle ou livro/pagina (ambos opcionais)
+    let ato = null;
+    if (controle) {
+      const { rows } = await client.query(
+        'SELECT id, controle, livro, pagina, data_ato, captador_id, executor_id, signatario_id FROM atos WHERE controle = $1 LIMIT 1',
+        [controle]
+      );
+      ato = rows[0] || null;
+    } else if (livro && pagina) {
+      const { rows } = await client.query(
+        'SELECT id, controle, livro, pagina, data_ato, captador_id, executor_id, signatario_id FROM atos WHERE livro = $1 AND pagina = $2 LIMIT 1',
+        [String(Number.parseInt(livro, 10) || 0), String(Number.parseInt(pagina, 10) || 0)]
+      );
+      ato = rows[0] || null;
     }
 
+    // Ato é opcional — incompatibilidade NÃO bloqueia
     const result = await createManifestacaoPendencia(client, {
-      ato: atos[0],
+      ato,
       user: req.user,
       mensagem,
-      confirmarSemRelacao,
+      tipoManifestacao,
+      livroRef: livro,
+      paginaRef: pagina,
+      confirmarSemRelacao: confirmarSemRelacao || !ato,
     });
 
     if (result.error) {

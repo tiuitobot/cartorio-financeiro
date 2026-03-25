@@ -141,17 +141,10 @@ function handleAtoWriteError(error, res) {
   return res.status(500).json({ erro: 'Erro interno' });
 }
 
-async function podeVerAto(ato, user, dbClient) {
+function podeVerAto(ato, user) {
   if (['admin','financeiro','chefe_financeiro'].includes(user.perfil)) return true;
-  // Participação direta
   if (user.escrevente_id && [ato.captador_id, ato.executor_id, ato.signatario_id].includes(user.escrevente_id)) return true;
-  // Vínculo: apenas se captador declarou compartilhar comigo (captador-only, não transitivo)
-  if (!ato.captador_id || !user.escrevente_id) return false;
-  const { rows } = await dbClient.query(
-    'SELECT 1 FROM escreventes_compartilhamento WHERE escrevente_id=$1 AND compartilha_com_id=$2 LIMIT 1',
-    [ato.captador_id, user.escrevente_id]
-  );
-  return rows.length > 0;
+  return false;
 }
 
 function mapAtoRows(rows) {

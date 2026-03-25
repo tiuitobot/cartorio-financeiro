@@ -18,9 +18,7 @@ import PainelUsuarios from './pages/PainelUsuarios.jsx';
 // Modals
 import ModalAto                  from './components/modals/ModalAto.jsx';
 import ModalEscrevente           from './components/modals/ModalEscrevente.jsx';
-import ModalDeclaroParticipacao  from './components/modals/ModalDeclaroParticipacao.jsx';
 import ModalManifestarPendencia  from './components/modals/ModalManifestarPendencia.jsx';
-import ModalRespostaCaptador     from './components/modals/ModalRespostaCaptador.jsx';
 import ModalTrocarSenha          from './components/modals/ModalTrocarSenha.jsx';
 
 function sortEscreventesByNome(items = []) {
@@ -71,15 +69,12 @@ export default function App() {
   const [despesasRegistro, setDespesasRegistro]   = useState([]);
   const [pagamentosReembolso, setPagamentosReembolso] = useState([]);
   const [pendencias, setPendencias]               = useState([]);
-  const [reivindicacoes, setReivindicacoes]       = useState([]);
   const [preferenciasUsuario, setPreferenciasUsuario] = useState({});
   const [relatoriosInitialTab, setRelatoriosInitialTab] = useState(null);
   const [view, setView]                           = useState('dashboard');
   const [modalAto, setModalAto]                   = useState(null);
   const [modalEscrevente, setModalEscrevente]     = useState(null);
-  const [modalDeclaro, setModalDeclaro]           = useState(false);
   const [modalManifestarPendencia, setModalManifestarPendencia] = useState(false);
-  const [modalRespostaCaptador, setModalRespostaCaptador] = useState(null);
   const [modalSenha, setModalSenha]               = useState(false);
   const [busca, setBusca]                         = useState('');
   const [erro, setErro]                           = useState('');
@@ -171,12 +166,11 @@ export default function App() {
     setLoadingDados(true);
     try {
       const isAuxiliar = user.perfil === 'auxiliar_registro';
-      const [atosData, escsData, despesasRegistroData, rembs, reivs, pendenciasData, preferenciasData] = await Promise.all([
+      const [atosData, escsData, despesasRegistroData, rembs, pendenciasData, preferenciasData] = await Promise.all([
         isAuxiliar ? Promise.resolve([]) : api.getAtos(),
         isAuxiliar ? Promise.resolve([]) : api.getEscreventes(),
         ['admin', 'financeiro', 'chefe_financeiro', 'auxiliar_registro'].includes(user.perfil) ? api.getDespesasRegistro() : Promise.resolve([]),
         isAuxiliar ? Promise.resolve([]) : api.getReembolsos(),
-        isAuxiliar ? Promise.resolve([]) : api.getReivindicacoes(),
         isAuxiliar ? Promise.resolve([]) : api.getPendencias({ status: 'todas' }),
         api.getPreferenciasUsuario(),
       ]);
@@ -184,7 +178,6 @@ export default function App() {
       setEscreventes(sortEscreventesByNome(escsData));
       setDespesasRegistro(sortDespesasRegistro(despesasRegistroData.map(normalizeDespesaRegistro)));
       setPagamentosReembolso(rembs.map(normalizeReembolso));
-      setReivindicacoes(reivs);
       setPendencias(pendenciasData);
       setPreferenciasUsuario(preferenciasData || {});
     } catch (e) {
@@ -208,7 +201,7 @@ export default function App() {
   };
   const handleLogout = () => {
     localStorage.removeItem('cartorio_token');
-    setUser(null); setAtos([]); setEscreventes([]); setDespesasRegistro([]); setPagamentosReembolso([]); setPendencias([]); setReivindicacoes([]);
+    setUser(null); setAtos([]); setEscreventes([]); setDespesasRegistro([]); setPagamentosReembolso([]); setPendencias([]);
     setPreferenciasUsuario({});
     setView('dashboard');
     setDadosInicializados(false); setLoadingDados(false); setModalSenha(false); setErro('');
@@ -289,39 +282,6 @@ export default function App() {
     } catch (e) { setErro('Erro ao salvar escrevente: ' + e.message); }
   };
 
-  const handleDeclaro = async (reiv) => {
-    try {
-      const nova = await api.criarReivindicacao(reiv);
-      setReivindicacoes(prev => [...prev, nova]);
-      setModalDeclaro(false);
-    } catch (e) { setErro(e.message); }
-  };
-
-  const handleRespostaCaptador = async (reivAtualizada) => {
-    try {
-      const atualizada = await api.atualizarReivindicacao(reivAtualizada.id, reivAtualizada);
-      setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
-      if (reivAtualizada.status === 'aceita') await carregarDados();
-      setModalRespostaCaptador(null);
-    } catch (e) { setErro(e.message); }
-  };
-
-  const handleContestarRecusa = async (reivId) => {
-    try {
-      const atualizada = await api.atualizarReivindicacao(reivId, { status: 'contestada' });
-      setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
-    } catch (e) { setErro(e.message); }
-  };
-
-  const handleDecisaoFinanceiro = async (reivId, aceitar) => {
-    const status = aceitar ? 'aceita_financeiro' : 'negada_financeiro';
-    try {
-      const atualizada = await api.atualizarReivindicacao(reivId, { status, decisao_financeiro: aceitar ? 'Aceita pelo Financeiro' : 'Negada pelo Financeiro' });
-      setReivindicacoes(prev => prev.map(r => r.id === atualizada.id ? atualizada : r));
-      if (aceitar) await carregarDados();
-    } catch (e) { setErro(e.message); }
-  };
-
   const handleManifestarPendencia = async (payload) => {
     const pendencia = await api.manifestarPendencia(payload);
     await carregarDados();
@@ -340,20 +300,11 @@ export default function App() {
     setPendencias((prev) => prev.filter((item) => item.id !== pendenciaId));
   };
 
-  // ── Visibilidade de atos (C1: backend já filtra para escrevente; workaround mantido como camada extra) ──
+  // ── Visibilidade de atos (backend já filtra; camada extra como segurança) ──
   const podeVerAto = (ato) => {
     if (['admin', 'financeiro', 'chefe_financeiro'].includes(userRole)) return true;
     if (!userId) return false;
-    // Participação direta: o escrevente está no ato como captador, executor ou signatário
-    if ([ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId)) return true;
-
-    // Visibilidade por vínculo:
-    // - Aplica-se apenas ao escrevente diretamente declarado como vinculado
-    // - Apenas para atos em que o escrevente vinculado seja o CAPTADOR
-    // - Não é transitivo: A→B→C não dá acesso de C aos atos de A
-    // - Vínculo não equivale a participação no ato
-    const esc = escreventes.find(e => e.id === userId);
-    return (esc?.compartilhar_com || []).some(cid => ato.captador_id === cid);
+    return [ato.captador_id, ato.executor_id, ato.signatario_id].includes(userId);
   };
 
   const escreventesById = useMemo(
@@ -488,10 +439,7 @@ export default function App() {
               <button onClick={() => setModalAto('novo')} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Ato</button>
             )}
             {view === 'atos' && userRole === 'escrevente' && (
-              <>
-                <button onClick={() => setModalManifestarPendencia(true)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>⚠️ Manifestar Pendência</button>
-                <button onClick={() => setModalDeclaro(true)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>📝 Declaro Participação</button>
-              </>
+              <button onClick={() => setModalManifestarPendencia(true)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>⚠️ Manifestar Pendência</button>
             )}
             {view === 'escreventes' && userRole === 'admin' && (
               <button onClick={() => setModalEscrevente({ nome: '', taxa: 6, cargo: '', email: '', compartilhar_com: [], taxas_historico: [], taxa_vigencia_inicio: new Date().toISOString().slice(0, 10) })} style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>＋ Novo Escrevente</button>
@@ -518,17 +466,12 @@ export default function App() {
               <Atos
                 atos={atosFiltrados}
                 escreventes={escreventesOrdenados}
-                reivindicacoes={reivindicacoes}
                 userRole={userRole}
                 userId={userId}
                 userStorageKey={user?.id || userRole}
                 preferredColumns={preferenciasUsuario.livros_notas_colunas}
                 onSavePreferredColumns={(colunas) => salvarPreferenciasUsuario({ livros_notas_colunas: colunas })}
                 onOpenAto={a => setModalAto(a)}
-                onDeclaro={() => setModalDeclaro(true)}
-                onRespostaCaptador={r => setModalRespostaCaptador(r)}
-                onContestar={handleContestarRecusa}
-                onDecisaoFinanceiro={handleDecisaoFinanceiro}
                 busca={busca}
                 onBusca={setBusca}
               />
@@ -648,15 +591,6 @@ export default function App() {
           todosEscreventes={escreventesOrdenados}
         />
       )}
-      {modalDeclaro && (
-        <ModalDeclaroParticipacao
-          userId={userId}
-          atos={atos}
-          escreventes={escreventes}
-          onClose={() => setModalDeclaro(false)}
-          onSubmit={handleDeclaro}
-        />
-      )}
       {modalManifestarPendencia && (
         <ModalManifestarPendencia
           onClose={() => setModalManifestarPendencia(false)}
@@ -668,14 +602,6 @@ export default function App() {
               throw error;
             }
           }}
-        />
-      )}
-      {modalRespostaCaptador && (
-        <ModalRespostaCaptador
-          reiv={modalRespostaCaptador}
-          escreventes={escreventes}
-          onClose={() => setModalRespostaCaptador(null)}
-          onSave={handleRespostaCaptador}
         />
       )}
       {modalSenha && (
