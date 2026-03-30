@@ -1,6 +1,6 @@
 # Handoff - Status Atual
 
-Data de referencia: 23/03/2026.
+Data de referencia: 30/03/2026 (atualizado; original: 23/03/2026).
 
 ## Resumo do que foi feito
 
@@ -106,6 +106,20 @@ Foram feitos os seguintes ajustes:
   - paginacao client-side em Atos e Relatorios (5 tabs)
   - Sheet com largura configuravel e formatacao de comissoes
 - registro de incidentes de deploy em [docs/22-deploy-incidents-2026-03-23.md](/home/linuxadmin/repos/cartorio-financeiro/docs/22-deploy-incidents-2026-03-23.md)
+- plano P3 do Henrique concluido em 24/03/2026 ([docs/23-plano-implantacao-p3-henrique.md](/home/linuxadmin/repos/cartorio-financeiro/docs/23-plano-implantacao-p3-henrique.md)):
+  - hardening de permissao de `reembolso_tabeliao` (8.4)
+  - persistencia de preferencias de colunas no banco com API (3.1 fase 2)
+  - alertas financeiros e workflow de contestacao de reembolso (7.1 fase 2)
+  - tabela e CRUD de `despesas_registro` (8.2)
+  - perfil `auxiliar_registro` com autorizacao e UI dedicada (8.1)
+  - regra de despesa apos pagamento sem degradar status do ato (8.3)
+- troca obrigatoria de senha no primeiro login:
+  - migration `0015_usuarios_primeiro_login_senha.sql` adiciona coluna `precisa_trocar_senha`
+  - middleware auth retorna HTTP 428 enquanto flag ativo
+  - frontend exibe modal `ModalTrocarSenha` bloqueando navegacao
+  - `PUT /api/auth/senha` limpa flag e emite novo JWT
+  - criacao de usuario pelo admin marca flag como `true`
+- retorno do Henrique (24-25/03): isolamento de permissoes, remocao de declaro/compartilhamento, redesign de manifestar
 
 ## O que esta pronto
 
@@ -156,6 +170,17 @@ Foram feitos os seguintes ajustes:
   - filtros e escopo por perfil
   - solve / reopen / hide
   - regra de reabertura coerente com a origem da pendencia
+- `P3` completo (6 etapas) com validacao local e smoke em homologacao:
+  - hardening de permissao `reembolso_tabeliao`
+  - persistencia de preferencias de colunas via API (`GET/PUT /api/usuarios/preferencias`)
+  - alertas financeiros de contestacao de reembolso
+  - modulo `despesas_registro` com CRUD completo e UI dedicada
+  - perfil `auxiliar_registro` com autorizacao restrita
+  - regra de despesa apos pagamento
+- troca obrigatoria de senha no primeiro login implementada (middleware 428 + frontend modal)
+- 19 migrations versionadas (0001-0019)
+- 60 testes unitarios + suite E2E Playwright
+- 16 arquivos de teste no backend, 8 specs E2E no frontend
 
 ### Pronto em nivel de conceito
 
@@ -174,21 +199,24 @@ Foram feitos os seguintes ajustes:
 
 ### Nao implementado
 
-- troca obrigatoria de senha no primeiro login
 - revisao de exposicao de dados sensiveis
 - endurecimento restante do modelo de auditoria
-- execucao ponta a ponta com banco real neste ambiente
 - definicao final de `executor_id` e `signatario_id` na importacao da planilha
 - lote real de homologacao com nomes reais do cartorio
-- persistencia de preferencias de colunas no banco
-- modulo de `auxiliar_registro` e `despesas_registro`
+
+### Implementado desde 23/03/2026 (antes listado como pendente)
+
+- ~~troca obrigatoria de senha no primeiro login~~ — migration 0015, middleware 428, frontend modal
+- ~~persistencia de preferencias de colunas no banco~~ — migration 0016, API de preferencias
+- ~~modulo de `auxiliar_registro` e `despesas_registro`~~ — migrations 0017-0018, rotas, UI, testes
+- ~~execucao ponta a ponta com banco real~~ — validado em homologacao e producao Railway
 
 ## Pendencias prioritarias
 
 ### Produto / seguranca
 
 1. remover qualquer fluxo que dependa de senha fixa
-2. exigir troca de senha inicial
+2. ~~exigir troca de senha inicial~~ — FEITO (migration 0015, middleware 428)
 3. revisar auth para uso remoto real
 4. endurecer armazenamento de sessao/token para fase pos-MVP
 
@@ -200,7 +228,7 @@ Foram feitos os seguintes ajustes:
 4. validar migrations em banco real e automatizar o apply no deploy
 5. homologar a inferencia provisoria de pagamento da planilha
 6. criar utilitario administrativo seguro para limpeza de artefatos de QA em homologacao
-7. modelar `despesas_registro` sem poluir `atos`
+7. ~~modelar `despesas_registro` sem poluir `atos`~~ — FEITO (tabela propria, migration 0017)
 
 ### Aplicacao
 
@@ -214,15 +242,15 @@ Foram feitos os seguintes ajustes:
 
 1. validar o runbook nativo com PostgreSQL local e smoke real
 2. validar `docker compose up --build` em ambiente com Docker disponivel
-3. validar aplicacao das migrations automaticamente
-4. subir primeiro ambiente no Railway
+3. ~~validar aplicacao das migrations automaticamente~~ — FEITO (migrations rodam no boot via start-prod.sh)
+4. ~~subir primeiro ambiente no Railway~~ — FEITO (producao e homologacao ativos)
 5. criar rotina real de backup do banco
 
 ## Riscos atuais
 
 ### Risco alto
 
-- o sistema ainda nao foi exercitado ponta a ponta depois da reorganizacao
+- ~~o sistema ainda nao foi exercitado ponta a ponta depois da reorganizacao~~ — validado em producao e homologacao Railway
 - o modelo de seguranca ainda nao esta adequado para uso remoto serio
 - regras de negocio importantes seguem no frontend
 - a auditoria ainda usa campos textuais no banco, embora o servidor agora seja o dono do carimbo
@@ -244,6 +272,34 @@ Foram feitos os seguintes ajustes:
 - **Migrations com CHECK constraints** — verificar dados existentes com `SELECT DISTINCT` antes de adicionar constraints. Dados legados com digitacao livre causam falha em loop.
 - **Acesso ao banco de fora do Railway** — `railway run` nao funciona para scripts de banco (`postgres.railway.internal` nao resolve localmente). Usar `DATABASE_PUBLIC_URL` do servico Postgres via `railway variables --json`.
 - **Link do Railway local** — apos qualquer operacao no homolog, relinkar para producao: `railway link -p secure-recreation -s amiable-perfection -e production`. Esquecer de relinkar pode causar deploy acidental em producao.
+
+## Ambientes Railway
+
+### Producao
+
+- projeto Railway: `secure-recreation`
+- servico web: `amiable-perfection`
+- environment: `production`
+- URL publica: `https://amiable-perfection-production-abd6.up.railway.app`
+- banco: PostgreSQL provisionado no mesmo projeto
+- link local: `railway link -p secure-recreation -s amiable-perfection -e production`
+
+### Homologacao
+
+- projeto Railway: `cartorio-financeiro-homolog` (projeto separado)
+- servico web: `cartorio-web-homolog`
+- banco: `Postgres-6d2K`
+- URL publica: `https://cartorio-web-homolog-production.up.railway.app`
+- credenciais de seed: `admin@cartorio.com` / `CartorioDev123` (descartaveis)
+- link local: `railway link` no projeto `cartorio-financeiro-homolog`
+
+### Regras operacionais
+
+- **SEMPRE** executar `railway up` do root do projeto (nunca de `frontend/` ou `backend/`)
+- Apos operar na homologacao, relinkar para producao: `railway link -p secure-recreation -s amiable-perfection -e production`
+- Para acessar banco de fora do Railway, usar `DATABASE_PUBLIC_URL` (o hostname interno `postgres.railway.internal` nao resolve localmente)
+- Healthcheck timeout esta em 600s no `railway.json` — migrations levam ~5-7min
+- Detalhes de incidentes: [docs/22-deploy-incidents-2026-03-23.md](/home/linuxadmin/repos/cartorio-financeiro/docs/22-deploy-incidents-2026-03-23.md)
 
 ## Arquivos-chave para continuidade
 
@@ -278,6 +334,13 @@ Foram feitos os seguintes ajustes:
 - [backend/db/migrations/0010_normalize_legacy_payment_fields.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0010_normalize_legacy_payment_fields.sql)
 - [backend/db/migrations/0011_escreventes_taxas_historico.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0011_escreventes_taxas_historico.sql)
 - [backend/db/migrations/0012_taxas_historico_backfill_baseline.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0012_taxas_historico_backfill_baseline.sql)
+- [backend/db/migrations/0013_pendencias.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0013_pendencias.sql)
+- [backend/db/migrations/0014_taxa_zero_e_tipo_ato.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0014_taxa_zero_e_tipo_ato.sql)
+- [backend/db/migrations/0015_usuarios_primeiro_login_senha.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0015_usuarios_primeiro_login_senha.sql)
+- [backend/db/migrations/0016_usuarios_preferencias.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0016_usuarios_preferencias.sql)
+- [backend/db/migrations/0017_despesas_registro.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0017_despesas_registro.sql)
+- [backend/db/migrations/0018_auxiliar_registro.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0018_auxiliar_registro.sql)
+- [backend/db/migrations/0019_manifestacao_tipos.sql](/home/linuxadmin/repos/cartorio-financeiro/backend/db/migrations/0019_manifestacao_tipos.sql)
 - [backend/scripts/run-migrations.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/run-migrations.js)
 - [backend/scripts/create-admin.js](/home/linuxadmin/repos/cartorio-financeiro/backend/scripts/create-admin.js)
 - [scripts/repair-legacy-payment-metadata-via-api.mjs](/home/linuxadmin/repos/cartorio-financeiro/scripts/repair-legacy-payment-metadata-via-api.mjs)
@@ -287,30 +350,38 @@ Foram feitos os seguintes ajustes:
 - [backend/lib/list-scopes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/list-scopes.js)
 - [backend/lib/controle-diario-import.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/controle-diario-import.js)
 - [backend/lib/taxas-historico.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/taxas-historico.js)
+- [backend/lib/pendencias.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/pendencias.js)
+- [backend/lib/user-preferences.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/user-preferences.js)
 - [backend/routes/atos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/atos.js)
+- [backend/routes/auth.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/auth.js)
+- [backend/routes/escreventes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/escreventes.js)
 - [backend/routes/importacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/importacoes.js)
+- [backend/routes/pendencias.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/pendencias.js)
 - [backend/routes/reembolsos.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/reembolsos.js)
 - [backend/routes/reivindicacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/reivindicacoes.js)
-- [backend/tests/audit.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/audit.test.js)
-- [backend/tests/controle-diario-import.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/controle-diario-import.test.js)
-- [backend/tests/finance.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/finance.test.js)
-- [backend/tests/list-scopes.test.js](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/list-scopes.test.js)
+- [backend/routes/despesas-registro.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/despesas-registro.js)
+- [backend/routes/usuarios.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/usuarios.js)
+- [backend/tests/](/home/linuxadmin/repos/cartorio-financeiro/backend/tests/) — 16 arquivos de teste (60 testes)
 - [frontend/src/App.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/App.jsx)
 - [frontend/src/api.js](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/api.js)
-- [frontend/src/pages/Atos.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/pages/Atos.jsx)
+- [frontend/src/pages/](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/pages/) — 8 paginas
 - [frontend/src/components/modals/ModalAto.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/components/modals/ModalAto.jsx)
+- [frontend/src/components/modals/ModalTrocarSenha.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/components/modals/ModalTrocarSenha.jsx)
+- [frontend/src/pages/DespesasRegistro.jsx](/home/linuxadmin/repos/cartorio-financeiro/frontend/src/pages/DespesasRegistro.jsx)
 
 ## Proximo passo recomendado
 
-Ordem recomendada:
+Situacao em 30/03/2026: P1, P2 e P3 estao concluidos e em producao. O sistema esta operando no Railway.
 
-1. validar o fluxo nativo em [docs/09-infra-local-postgres.md](/home/linuxadmin/repos/cartorio-financeiro/docs/09-infra-local-postgres.md)
-2. confirmar em ambiente com banco real o cleanup do frontend e liberar remocao de `utils/business.js`
-3. validar `docker compose up --build` em ambiente com Docker disponivel
-4. fechar a rodada atual da frente financeira em producao
-5. homologar com o usuario do cartorio
-6. continuar o `P2` com historico de taxas
-7. so depois comecar a automacao de migracao para GCP
+Proximas frentes:
+
+1. homologar com o usuario real do cartorio os fluxos do P3 (despesas, auxiliar_registro, alertas)
+2. revisar auth e modelo de seguranca para uso remoto continuo
+3. mover regras criticas restantes do frontend para o backend
+4. quebrar `frontend/src/App.jsx` em modulos menores
+5. validar `docker compose up --build` em ambiente com Docker
+6. definir rotina de backup real do banco Railway
+7. quando dados/escala justificarem, planejar migracao para Google Cloud
 
 ## Criterio de aceite minimo antes de deploy real
 

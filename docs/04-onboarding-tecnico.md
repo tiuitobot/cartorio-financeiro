@@ -1,6 +1,6 @@
 # Onboarding Tecnico
 
-Data de referencia: 18/03/2026.
+Data de referencia: 30/03/2026 (atualizado; original: 18/03/2026).
 
 ## Objetivo
 
@@ -17,13 +17,18 @@ O foco atual do repositorio e:
 
 Sistema web de gestao financeira para cartorio de notas, com:
 
-- autenticacao por perfil
+- autenticacao por perfil (admin, financeiro, chefe_financeiro, escrevente, auxiliar_registro)
+- troca obrigatoria de senha no primeiro login
 - cadastro de escreventes e usuarios
 - lancamento e consulta de atos
-- calculo de comissoes
+- calculo de comissoes com historico de taxas por vigencia
 - relatorios e exportacao
-- reembolsos
+- reembolsos com workflow de contestacao
 - reivindicacoes de participacao em ato
+- importacao de planilhas XLSX com staging e preview
+- pendencias automaticas e manuais com manifestacao
+- despesas de registro (separado de atos)
+- persistencia de preferencias de colunas por usuario
 
 ## Stack atual
 
@@ -39,9 +44,9 @@ Sistema web de gestao financeira para cartorio de notas, com:
 - React
 - Vite
 
-### Infra alvo
+### Infra
 
-- curto prazo: Railway
+- **atual**: Railway (producao e homologacao ativos)
 - medio prazo: Google Cloud Run + Cloud SQL
 
 ## Estrutura do repositorio
@@ -211,14 +216,16 @@ O projeto agora possui:
 
 Executar a partir de `backend/`:
 
-- `npm run migrate`
-- `npm run admin:create`
-- `npm run seed:dev`
-- `npm test`
+- `npm run migrate` — aplica migrations sequenciais
+- `npm run admin:create` — cria usuario admin (usa env vars ADMIN_*)
+- `npm run seed:dev` — popula dados de desenvolvimento (limpa tabelas antes)
+- `npm run pendencias:sync` — sincroniza pendencias automaticas
+- `npm run reset:empty` — reseta base para estado vazio
+- `npm test` — roda 60 testes unitarios
 
 Executar a partir de `frontend/`:
 
-- `npm run e2e`
+- `npm run e2e` — suite E2E com Playwright
 
 Automação remota:
 
@@ -237,6 +244,9 @@ Comportamentos importantes ja assumidos pelo backend:
 - criacao/edicao de ato rejeita `controle`, `livro` ou `pagina` vazios
 - criacao/edicao de ato rejeita valores monetarios negativos
 - `reembolso_escrevente > 0` exige `escrevente_reembolso_id`
+- middleware auth retorna HTTP 428 se usuario precisa trocar senha (exceto `/api/auth/me` e `/api/auth/senha`)
+- perfil `auxiliar_registro` so acessa `/api/despesas-registro`
+- pendencias automaticas sincronizadas ao criar/editar atos
 
 ### Uso esperado de `npm run admin:create`
 
@@ -270,13 +280,17 @@ Variaveis opcionais:
 - `npm install` de backend e frontend
 - `npm run build` do frontend
 
+### Validado desde a escrita original
+
+- deploy real no Railway (producao e homologacao ativos desde 23/03/2026)
+- execucao ponta a ponta com banco real em homologacao e producao
+- aplicacao de migrations em banco com dados existentes (19 migrations aplicadas)
+- build real do container (Dockerfile validado no Railway)
+
 ### Nao validado ainda
 
-- build real do container
-- execucao ponta a ponta com banco
-- deploy real no Railway
 - deploy real no Google Cloud
-- aplicacao das migrations em banco legado com dados existentes
+- `docker compose up --build` em ambiente local com Docker
 
 ## Regras para mexer nessa base
 
@@ -290,19 +304,42 @@ Variaveis opcionais:
 ## Riscos conhecidos do produto
 
 1. regras criticas ainda ficam parcialmente no frontend
-2. o modelo de auditoria do banco ainda e fraco
-3. a matriz de visibilidade ainda precisa de homologacao por perfil, embora `reembolsos` e `reivindicacoes` ja filtrem `escrevente`
-4. faltam migracoes versionadas
-5. faltam testes automatizados
+2. o modelo de auditoria do banco ainda e fraco (campos textuais)
+3. a matriz de visibilidade ainda precisa de homologacao por perfil, embora `reembolsos`, `reivindicacoes` e `pendencias` ja filtrem por escopo
+4. ~~faltam migracoes versionadas~~ — existem 19 migrations versionadas (0001-0019)
+5. ~~faltam testes automatizados~~ — 60 testes unitarios + suite E2E Playwright
+
+## Ambientes Railway
+
+### Producao
+
+- projeto: `secure-recreation`
+- servico: `amiable-perfection`
+- URL: `https://amiable-perfection-production-abd6.up.railway.app`
+- link local: `railway link -p secure-recreation -s amiable-perfection -e production`
+
+### Homologacao
+
+- projeto: `cartorio-financeiro-homolog`
+- servico: `cartorio-web-homolog`
+- URL: `https://cartorio-web-homolog-production.up.railway.app`
+- credenciais de seed: `admin@cartorio.com` / `CartorioDev123`
+- detalhes: [docs/14-railway-homologacao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/14-railway-homologacao.md)
+
+### Armadilhas
+
+- **NUNCA** rodar `railway up` de dentro de `frontend/` — Railway auto-detecta como site estatico e mata o backend
+- Apos operar na homologacao, relinkar para producao
+- Healthcheck timeout em 600s (`railway.json`) — migrations levam ~5-7min
+- Detalhes: [docs/22-deploy-incidents-2026-03-23.md](/home/linuxadmin/repos/cartorio-financeiro/docs/22-deploy-incidents-2026-03-23.md)
 
 ## Ordem recomendada para uma pessoa nova continuar
 
 1. ler [docs/05-handoff-status-atual.md](/home/linuxadmin/repos/cartorio-financeiro/docs/05-handoff-status-atual.md)
-2. rodar [docs/09-infra-local-postgres.md](/home/linuxadmin/repos/cartorio-financeiro/docs/09-infra-local-postgres.md)
-3. validar `GET /api/health`
-4. aplicar `npm run migrate` em um Postgres limpo e confirmar a migration `0002`
-5. endurecer seguranca minima
-6. preparar primeiro deploy real no Railway
+2. rodar o ambiente local com [docs/09-infra-local-postgres.md](/home/linuxadmin/repos/cartorio-financeiro/docs/09-infra-local-postgres.md)
+3. validar `GET /api/health` e `npm run migrate` em Postgres limpo (19 migrations)
+4. rodar `npm test` no backend (60 testes) e `npm run build` no frontend
+5. conhecer os ambientes Railway (producao e homologacao) listados acima
 
 ## Quando pedir contexto adicional
 
