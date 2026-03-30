@@ -1,32 +1,40 @@
 # Cartorio Financeiro
 
-Base limpa do projeto extraida do zip original e preparada para deploy cloud-portable.
+Sistema de gestao financeira para cartorios — controle de atos, comissoes, reembolsos, pendencias e despesas de registro. Em producao no Railway.
 
 ## Estrutura
 
-- `backend/`: API Express e schema PostgreSQL
-- `frontend/`: interface React/Vite
-- `docs/`: analise de hospedagem, MVP no Railway e migracao para Google Cloud
-- `infra/railway/`: notas operacionais para deploy inicial
+- `backend/`: API Express (9 modulos de rotas) e schema PostgreSQL (19 migrations)
+- `frontend/`: interface React/Vite (8 paginas, componentes reutilizaveis)
+- `docs/`: documentacao tecnica, runbooks, backlog e ADRs
+- `infra/railway/`: notas operacionais para deploy
 - `infra/gcp/`: esqueleto de migracao para Cloud Run + Cloud SQL
-- `backend/lib/controle-diario-import.js`: parser e normalizacao da planilha do controle diario
 
-## Objetivo desta organizacao
+## Modulos principais
 
-- subir o MVP agora no Railway
-- manter o codigo portavel
-- migrar depois para Google Cloud sem reescrever a aplicacao
+- **Atos**: registro, busca, calculo financeiro com comissoes e pagamentos
+- **Escreventes**: cadastro de escreventes com historico de taxas
+- **Importacoes**: upload e validacao de planilhas XLSX com staging
+- **Pendencias**: criacao automatica e manual, manifestacao, resolucao
+- **Reembolsos**: solicitacao, confirmacao e contestacao
+- **Reivindicacoes**: pedidos de participacao em atos
+- **Despesas de Registro**: controle de despesas por ato
+- **Usuarios**: cadastro, perfis (admin/financeiro/escrevente/auxiliar_registro), preferencias
+- **Auth**: login JWT, troca de senha obrigatoria no primeiro acesso
 
-## Arquivos principais de deploy
+## Deploy
 
-- `Dockerfile`
-- `docker-compose.yml`
-- `.env.example`
-- `railway.json`
+Producao hospedada no Railway (`railway up` da raiz do projeto). Healthcheck timeout configurado em 600s no `railway.json`.
+
+Arquivos de deploy:
+- `Dockerfile` — build multi-stage (backend + frontend)
+- `docker-compose.yml` — ambiente local com PostgreSQL
+- `.env.example` — variaveis de ambiente necessarias
+- `railway.json` — configuracao Railway (healthcheck, build, start)
 
 ## Fluxo local recomendado
 
-O fluxo local recomendado agora e com PostgreSQL nativo antes de qualquer deploy cloud:
+PostgreSQL nativo, sem Docker:
 
 1. `./scripts/bootstrap-local-env.sh`
 2. `./scripts/check-local-prereqs.sh`
@@ -39,24 +47,15 @@ Runbook completo:
 
 - [docs/09-infra-local-postgres.md](/home/linuxadmin/repos/cartorio-financeiro/docs/09-infra-local-postgres.md)
 
-## Scripts operacionais do backend
+## Scripts do backend
 
 Executados a partir de `backend/`:
 
-- `npm run migrate`
-- `npm run admin:create`
-- `npm run seed:dev`
-- `npm test`
-
-## Importacao da planilha do cartorio
-
-Ja existe trilha de staging para upload e preview da planilha `Controle_Diario_2026_padronizado.xlsx`.
-
-- documentacao: [docs/13-importacao-controle-diario.md](/home/linuxadmin/repos/cartorio-financeiro/docs/13-importacao-controle-diario.md)
-- parser: [backend/lib/controle-diario-import.js](/home/linuxadmin/repos/cartorio-financeiro/backend/lib/controle-diario-import.js)
-- rota: [backend/routes/importacoes.js](/home/linuxadmin/repos/cartorio-financeiro/backend/routes/importacoes.js)
-
-Nesta fase o sistema ainda nao grava a planilha direto em `atos`. Primeiro ele faz parse, validacao e persistencia em staging.
+- `npm run migrate` — executa migrations sequenciais
+- `npm run admin:create` — cria usuario admin interativamente
+- `npm run seed:dev` — popula dados de desenvolvimento
+- `npm run pendencias:sync` — sincroniza pendencias automaticas
+- `npm test` — roda 60 testes (Node test runner nativo)
 
 ## Scripts de infra local
 
@@ -68,6 +67,12 @@ Executados a partir da raiz:
 - `./scripts/dev-api.sh`
 - `./scripts/dev-web.sh`
 - `./scripts/local-smoke.sh`
+
+## Testes
+
+Backend: 60 testes unitarios cobrindo permissoes, financeiro, pagamentos, pendencias, preferencias, importacao e rotas.
+
+Frontend: smoke E2E com Playwright (`cd frontend && npm run e2e`).
 
 ## Observacoes
 

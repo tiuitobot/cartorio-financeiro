@@ -1,6 +1,6 @@
-# Cartorio Financeiro - Docs de Hospedagem
+# Cartorio Financeiro - Documentacao Tecnica
 
-Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e a migracao posterior para Google Cloud.
+Documentacao do projeto: hospedagem, onboarding, backlog, incidentes de deploy, planos de implementacao e ADRs.
 
 ## Arquivos
 
@@ -64,11 +64,20 @@ Documentos gerados em 18/03/2026 para orientar a hospedagem inicial do sistema e
 - [19-adr-ui-template-reutilizavel.md](/home/linuxadmin/repos/cartorio-financeiro/docs/19-adr-ui-template-reutilizavel.md)
   ADR que formaliza o template unico de UI e a obrigatoriedade de extrair componentes/padroes reutilizaveis para novas telas e refactors retroativos.
 
+- [19-frontend-architecture-next.md](/home/linuxadmin/repos/cartorio-financeiro/docs/19-frontend-architecture-next.md)
+  Preparacao arquitetural do frontend para escala: multi-tenancy, React Router, Tailwind, paginacao backend e code splitting.
+
 - [20-p2-homologacao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/20-p2-homologacao.md)
   Estado do `P2` validado na homologacao, com escopo coberto, correcao de historico de taxas e resultado da validacao de backend e UI.
 
 - [21-pendencias-producao.md](/home/linuxadmin/repos/cartorio-financeiro/docs/21-pendencias-producao.md)
   Checkpoint da promocao do modulo de pendencias para producao, com regra final de reabertura, atalho de conferencia e validacao funcional.
+
+- [22-deploy-incidents-2026-03-23.md](/home/linuxadmin/repos/cartorio-financeiro/docs/22-deploy-incidents-2026-03-23.md)
+  Registro dos incidentes de deploy no Railway em 23/03/2026, incluindo deploy acidental como site estatico, timeout de healthcheck e migrations com constraint.
+
+- [23-plano-implantacao-p3-henrique.md](/home/linuxadmin/repos/cartorio-financeiro/docs/23-plano-implantacao-p3-henrique.md)
+  Plano operacional de implantacao das 6 etapas do P3 restante (despesas_registro, auxiliar_registro, column persistence, financial alerts), concluido em 24/03/2026.
 
 ## Resumo executivo
 
