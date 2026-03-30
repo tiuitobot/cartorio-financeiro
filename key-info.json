@@ -1,0 +1,44 @@
+{
+  "repo": "cartorio-financeiro",
+  "version": 1,
+  "lastUpdated": "2026-03-30T09:30:00-03:00",
+  "_cursor": "277e0f059c9006f88470bf65e8c0bace1edb014b",
+  "keyInfo": [
+    {
+      "id": "K001",
+      "info": "Stack: local Postgres, Railway deploy, CI/E2E. docker-compose.yml for local. railway.json for production. ecosystem.config.js for PM2.",
+      "importance": "critical",
+      "status": "confirmed",
+      "date": "2026-03-18",
+      "source": "git commit 27505ff",
+      "_sweepHits": 3
+    },
+    {
+      "id": "K002",
+      "info": "Railway healthcheck timeout must be 600s. Default timeout caused false-negative deploy failures. railway.json controls this.",
+      "importance": "critical",
+      "status": "confirmed",
+      "date": "2026-03-23",
+      "source": "git commit fae9d25",
+      "_sweepHits": 3
+    },
+    {
+      "id": "K009",
+      "info": "SQL interpolation eliminated in reivindicacoes (explicit query branches). CORS rejects cross-origin in production when CORS_ORIGIN env is not set.",
+      "importance": "critical",
+      "status": "confirmed",
+      "date": "2026-03-23",
+      "source": "git commit b46f18e",
+      "_sweepHits": 3
+    },
+    {
+      "id": "K010",
+      "info": "Enforce first-login password change: auth middleware blocks requests until password is changed. Schema, routes, frontend modal, and seed scripts all updated.",
+      "importance": "critical",
+      "status": "active",
+      "date": "2026-03-24",
+      "source": "git commit 540480b",
+      "_sweepHits": 3
+    }
+  ]
+}
