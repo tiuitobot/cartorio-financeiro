@@ -1,7 +1,7 @@
 {
   "repo": "cartorio-financeiro",
   "version": 1,
-  "lastUpdated": "2026-05-29T10:00:00Z",
+  "lastUpdated": "2026-06-03T00:00:00Z",
   "_cursor": "70b30f60b0ee76b264528d7b08b4862829080d19",
   "keyInfo": [
     {
@@ -38,6 +38,33 @@
       "status": "active",
       "date": "2026-03-24",
       "source": "git commit 540480b",
+      "_sweepHits": 3
+    },
+    {
+      "id": "K011",
+      "info": "Retorno 24-25/mar — permission isolation, remove declaro/compartilhamento, redesign manifestar",
+      "importance": "critical",
+      "status": "active",
+      "date": "2026-03-25",
+      "source": "git commit 132b94c",
+      "_sweepHits": 3
+    },
+    {
+      "id": "K012",
+      "info": "Restore healthcheck path after successful deploy",
+      "importance": "high",
+      "status": "active",
+      "date": "2026-03-23",
+      "source": "git commit f93c0b1",
+      "_sweepHits": 3
+    },
+    {
+      "id": "K013",
+      "info": "Increase Railway healthcheck timeout to 600s",
+      "importance": "high",
+      "status": "active",
+      "date": "2026-03-23",
+      "source": "git commit fae9d25",
       "_sweepHits": 3
     }
   ]
