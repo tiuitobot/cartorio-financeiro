@@ -1,0 +1,233 @@
+[
+  {
+    "id": "K003",
+    "info": "Migration 0014: taxa_zero_e_tipo_ato. Legacy tipo_ato must be normalized before CHECK constraint. Zero payments cleaned and constraint enforced.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit faaba15 + 3f4eb1a",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K004",
+    "info": "Pendencias module: production checkpoint implemented. Reopen and conference actions clarified. Filter by escrevente fixed. Refresh after ato save.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit 4200180 + c23ce8e",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K005",
+    "info": "Import flow: spreadsheet preview, cancellation with rollback delete, reset-empty bootstrap utility. Preview shows detailed errors and warnings.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-19",
+    "source": "git commit 436827e + a5070f9 + 3c78b73",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K006",
+    "info": "Payment model: launched vs confirmed payments are separate. Finance conference mode dedicated. Financial confirmation save flow separated from regular ato save.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit 97dc4e5 + d84f4e3",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K007",
+    "info": "Reusable filter sheets pattern: extracted and applied across dashboard, reports, and livros. Responsive sheet pattern is canonical UI pattern.",
+    "importance": "medium",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit eb66caf",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K008",
+    "info": "Tax history (P2): in progress in homolog. deploy incident: legacy tipo_ato constraint failure documented in docs/22-deploy-incidents-2026-03-23.md.",
+    "importance": "medium",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit bcb2da4 + 2234618",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K010",
+    "info": "Currency calculations apply Math.round to commission and reembolso outputs to prevent IEEE 754 floating-point drift. Escrevente lookup batched to eliminate N+1.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit 59fafaa",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K011",
+    "info": "Silent catch blocks in reembolsos, reivindicacoes, usuarios routes now log errors. PainelUsuarios surfaces API load failure instead of empty table.",
+    "importance": "medium",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit 112672a",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T12:00:00-03:00"
+  },
+  {
+    "id": "K011",
+    "info": "Escrevente tax history: table escreventes_taxas_historico (migrations 0011/0012). Logic in backend/lib/taxas-historico.js. Backfill baseline migration included.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit ee1f407",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K012",
+    "info": "Pendencias module: migration 0013, backend/lib/pendencias.js, backend/routes/pendencias.js, sync-pendencias.js. Full frontend in Relatorios.jsx. E2E tests included.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit 4200180",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K013",
+    "info": "Migration 0014 adds taxa CHECK constraint (0,6,20,30%). Certidão/testamento exempt from commission. buildAtosScope centralized in backend/lib/list-scopes.js.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit a151e73",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K014",
+    "info": "Migration 0014 normalizes legacy free-text tipo_ato (ESCRTURA, DELARATÓRIA, etc.) to canonical lowercase before CHECK constraint. Unrecognized values become NULL.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit 3f4eb1a",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K015",
+    "info": "Pagination via usePagination hook + Pagination UI component. Page size persisted in localStorage. Applied to Atos and all 5 Relatorios tabs.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit a151e73",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K016",
+    "info": "Currency rounding: Math.round applied to commission and reembolso outputs to prevent IEEE 754 drift. deleteImportedEscreventesIfOrphan uses batch SELECT to avoid N+1.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit 59fafaa",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K017",
+    "info": "Silent catch blocks in reembolsos, reivindicacoes, usuarios routes were swallowing errors. Added console.error. PainelUsuarios now surfaces API load failures.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit 112672a",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K018",
+    "info": "Textual ato search centralized in frontend/src/utils/search.js. Covers livros and all Relatorios tabs.",
+    "importance": "medium",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit 766df67",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K019",
+    "info": "Pendencias list auto-refreshes after ato save (App.jsx). Filter by escrevente was broken in both backend route and Relatorios.jsx — fixed in commit 34ac8df.",
+    "importance": "medium",
+    "status": "obsolete",
+    "date": "2026-03-21",
+    "source": "git commit 34ac8df",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K020",
+    "info": "Henrique P3 scope: despesas-registro module (migrations 0016-0018), ato-permissions lib, user-preferences (column visibility), auxiliar-registro routes and tests added.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-24",
+    "source": "git commit d43fb1e",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-24T23:59:00-03:00"
+  },
+  {
+    "id": "K011",
+    "info": "Permission isolation applied: declaro/compartilhamento routes removed, manifestar redesigned. Impacts access control boundaries.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-25",
+    "source": "git commit 132b94c",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-26T18:30:00+0000"
+  }
+  ,
+  {
+    "id": "K011",
+    "info": "Commission leak fix (Mar-25): escrevente now sees only own commissions via permission isolation. Migration 0019 adds tipo_manifestacao, livro_ref, pagina_ref to pendencias. Manifestar redesigned with situation types (reivindicar, excluir, retificar, esclarecer, outros).",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-25",
+    "source": "git commit 132b94c",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-27T12:30:00+0000"
+  },
+  {
+    "id": "K012",
+    "info": "P3 schema: migrations 0016 (usuarios_preferencias), 0017 (despesas_registro), 0018 (auxiliar_registro). New routes: despesas-registro, ato-permissions, user-preferences. buildAtosScope centralized in list-scopes.js.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-24",
+    "source": "git commit d43fb1e",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-27T12:30:00+0000"
+  },
+  {
+    "id": "K013",
+    "info": "Taxa constraint: CHECK(0,6,20,30) on atos via migration 0014. Tipo_ato constraint with legacy normalization before CHECK. Compartilhamento restricted to captador scope only. Pagination with localStorage-persisted page size.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit a151e73",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-27T12:30:00+0000"
+  },
+  {
+    "id": "K014",
+    "info": "Currency precision: Math.round applied to commission and reembolso outputs to prevent IEEE 754 floating-point drift. Escrevente lookup batched to eliminate N+1 query in deleteImportedEscreventesIfOrphan.",
+    "importance": "high",
+    "status": "obsolete",
+    "date": "2026-03-23",
+    "source": "git commit 59fafaa",
+    "_sweepHits": 0,
+    "archivedAt": "2026-03-27T12:30:00+0000"
+  }
+]
